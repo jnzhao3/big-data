@@ -8,17 +8,22 @@ Test machine: MacBook Pro M1 Max 64GB, Ollama 0.40.0.
 it is 3-6x faster, and tool calling works. Use the 27B model only for a few comparison runs.
 The bottleneck is candidate-column recall, not the model.
 
+**Scoring update (2026-11-02)**: results were first scored against the older `GDC_new/<study>/groundtruth.csv`
+(197 rows). The primary ground truth is now GDC-SM v1.0 (259 pairs, n:m), so every result below is reported
+against both. The predictions are unchanged; only the scoring is new. Conclusions stay the same.
+
 ## Files
 
 | File | Purpose |
 |---|---|
 | `bench_speed.sh` | Load time and generation speed per model |
 | `test_openai_tools.py` | Checks the OpenAI-compatible endpoint (`localhost:11434/v1`) and tool calling |
-| `clark_match.py` | Column matching test: for each source column, the model picks one target column from the candidates; scored against groundtruth |
+| `clark_match.py` | Column matching test: for each source column, the model picks one target column from the candidates. Scored against GDC-SM (`--gt gdc-sm`, default) or the old groundtruth (`--gt old`); `--rescore` rescores an earlier run's predictions without calling the model |
 | `run_all.sh` | 2 models x 2 candidate modes x 2 runs |
-| `magneto_ollama.py` | Runs Magneto (VIDA-NYU) with its LLM reranker pointed at local Ollama |
+| `magneto_ollama.py` | Runs Magneto (VIDA-NYU) with its LLM reranker pointed at local Ollama; scores against both ground truths |
 | `requirements-magneto.txt` | Dependencies for the separate Magneto venv (includes the valentine version pin) |
-| `results/` | All outputs from this test (see below) |
+| `results/` | Original runs, scored against the old groundtruth when they were made |
+| `results/gdc_sm/` | The same clark predictions rescored against GDC-SM, plus Magneto reruns scored against both ground truths |
 
 ## Setup
 
@@ -27,6 +32,8 @@ The bottleneck is candidate-column recall, not the model.
    [VIDA-NYU/data-harmonization-benchmark](https://github.com/VIDA-NYU/data-harmonization-benchmark)
    and extract it to `datasets/GDC_new/` at the repo root (ignored by `.gitignore`),
    or point `--data-dir` / the `GDC_DATA_DIR` environment variable somewhere else.
+   GDC-SM ground truth (Zenodo 14963588) goes in `datasets/gdc_sm/extracted/data/ground-truth/`
+   (override with `--gt-dir` / `GDC_SM_GT_DIR`); see `datasets/README.md`.
 3. `clark_match.py` only needs pandas (tested with Python 3.11).
 
 ```bash
@@ -34,6 +41,8 @@ The bottleneck is candidate-column recall, not the model.
 python test_openai_tools.py qwen2.5:14b
 python -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1
 PYTHON=python ./run_all.sh            # all 8 configs, about 20 minutes
+# rescore saved predictions against GDC-SM (no model calls)
+python -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1 --rescore results --out-dir results/gdc_sm
 ```
 
 Magneto (separate venv; run from the repo root; `third_party/` and `.venv*/` are ignored by `.gitignore`):
@@ -79,13 +88,17 @@ Why it happened (follow-up check, same tool-calling prompt repeated):
   text of assistant messages that contain tool calls before sending them back.
 - Small sample: whether a fresh load makes it more likely is not established.
 
-## 3. clark column matching (`results/clark_*.csv`, `results/summary.jsonl`)
+## 3. clark column matching (`results/gdc_sm/`, original scoring in `results/`)
 
 Data: the clark study in GDC_new. Source: 110 rows x 16 columns (CPTAC clear cell renal cell carcinoma clinical data).
 Target: 736 columns (GDC fields; the columns that have values mostly hold the list of allowed values for that field).
-Groundtruth: 15 pairs covering 14 source columns.
-Case_ID and Tumor_Site_Other have no matching column, so the expected answer is NONE.
-Tumor_Site has two correct targets; picking either counts as correct.
+Ground truth, 14 source columns in both versions:
+- GDC-SM: 25 pairs. Seven columns have several correct targets, e.g. Age -> {age_at_diagnosis, age_at_index, days_to_birth},
+  Ethnicity_Self_Identify -> {ethnicity, race}, pT/pN/stage -> both the `ajcc_*` and `uicc_*` fields.
+- Old groundtruth: 15 pairs; only Tumor_Site has two targets.
+
+A prediction counts as correct if it is any member of the column's gold set.
+Case_ID and Tumor_Site_Other have no matching column in either version, so the expected answer is NONE.
 
 Two candidate modes:
 - `shortlist`: 20 candidates chosen by column-name similarity + value overlap (fuzzy containment), shown with sample values. Candidate recall 11/14.
@@ -93,33 +106,40 @@ Two candidate modes:
 
 Model default temperature (temperature not set), `format=json`, `think=false`.
 
-| Config | run1 | run2 | Columns that changed between runs | Time run1/run2 |
+| Config | GDC-SM run1 / run2 | Old GT run1 / run2 | Columns that changed between runs | Time run1/run2 |
 |---|---|---|---|---|
-| shortlist + qwen2.5:14b | 8/14 | 8/14 | 1/16 | 62s / 31s |
-| full + qwen2.5:14b | 9/14 | 11/14 | 5/16 | 54s / 35s |
-| shortlist + qwen3.8:27b | 10/14 | 9/14 | 3/16 | 187s / 179s |
-| full + qwen3.8:27b | 8/14 | 9/14 | 5/16 | 242s / 200s |
+| shortlist + qwen2.5:14b | 9/14 / 9/14 | 8/14 / 8/14 | 1/16 | 62s / 31s |
+| full + qwen2.5:14b | 11/14 / 12/14 | 9/14 / 11/14 | 5/16 | 54s / 35s |
+| shortlist + qwen3.8:27b | 10/14 / 11/14 | 10/14 / 9/14 | 3/16 | 187s / 179s |
+| full + qwen3.8:27b | 10/14 / 11/14 | 8/14 / 9/14 | 5/16 | 242s / 200s |
+
+Shortlist candidate recall is 11/14 under both ground truths.
 
 Failure modes:
 - All outputs were valid JSON; no invalid output.
 - Hallucinated column names only appeared in `full` mode: 2 in 14b run1 (`anatomic_site`, `histology`).
   (A lowercase `none` in 27b run2 was originally counted as hallucinated; scoring is now case-insensitive and the results were rescored.)
-- Common errors: Ethnicity_Self_Identify -> ethnicity (groundtruth says race, which is debatable);
-  Case_ID -> submitter_id (not in groundtruth, but semantically reasonable);
-  Histologic_Type -> primary_diagnosis is almost never found;
-  Tumor/Normal -> tissue_type is only found by Magneto's embedding retrieval.
+- Under GDC-SM, three columns are wrong in all 8 runs (systematic, not random):
+  Tumor/Normal -> tissue_type (only Magneto's embedding retrieval finds it), Histologic_Type -> primary_diagnosis,
+  and Case_ID (expected NONE; models pick `submitter_id`, `id` or `bcr_id`, which is arguably reasonable).
+  Tumor_Site, Tumor_Site_Other and Tumor_Size_cm are wrong in only some runs.
+- The Ethnicity_Self_Identify -> ethnicity "error" under the old ground truth is correct under GDC-SM.
+- `full` mode sees only column names, no sample values, yet reaches 11-12/14. The model may have memorized
+  GDC field names; a renamed-target control is needed before trusting such numbers.
 
 Caveat: one study and two runs only show that the setup is usable; these are not final results.
 
-## 4. Magneto + local Qwen (`results/magneto_*.txt`)
+## 4. Magneto + local Qwen (`results/gdc_sm/magneto_*.txt`; first runs in `results/magneto_*.txt`)
 
 - Config: `Magneto(use_gpt_reranker=True, llm_model="ollama_chat/qwen2.5:14b", llm_model_kwargs={"api_base": "http://localhost:11434", "temperature": 0})`.
 - Pitfall: the latest `valentine==1.0.1` fails with `'MatcherResults' object has no attribute 'pop'`; use `valentine==0.5.0`.
 - clark results:
 
-| Setting | top1 | MRR | Time |
-|---|---|---|---|
-| No LLM (mpnet embeddings + bipartite reranker) | 6/14 | 0.551 | 14s |
-| + qwen2.5:14b reranker | 7/14 | 0.625 | 425s |
+| Setting | GDC-SM top1 | GDC-SM MRR | Old GT top1 | Old GT MRR | Time |
+|---|---|---|---|---|---|
+| No LLM (mpnet embeddings + bipartite reranker) | 7/14 | 0.591 | 6/14 | 0.551 | 14s |
+| + qwen2.5:14b reranker | 9/14 | 0.708 | 7/14 | 0.625 | 414s |
 
+These are reruns that score the same matches against both ground truths. The old-GT numbers are identical to
+the first runs (6/14, 0.551 and 7/14, 0.625; first reranker run took 425s), so with `temperature=0` this rerun reproduced exactly.
 LLM output parse failures: 0.

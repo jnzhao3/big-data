@@ -1,0 +1,35 @@
+Loaded default model 'mpnet' on cpu
+Applying LLM reranker
+--- scored against GDC-SM
+Age                              -> age_at_onset                        ✗ gold_rank=2
+BMI                              -> bmi                                 ✓ gold_rank=1
+Ethnicity_Self_Identify          -> ethnicity                           ✓ gold_rank=1
+Gender                           -> gender                              ✓ gold_rank=1
+Grade                            -> adverse_event_grade                 ✗ gold_rank=4
+Histologic_Type                  -> comorbidity_method_of_diagnosis     ✗ gold_rank=None
+Path_Stage_Primary_Tumor_pT      -> ajcc_pathologic_t                   ✓ gold_rank=1
+Path_Stage_Reg_Lymph_Nodes_pN    -> uicc_pathologic_n                   ✓ gold_rank=1
+Race                             -> race                                ✓ gold_rank=1
+Tumor/Normal                     -> tissue_type                         ✓ gold_rank=1
+Tumor_Focality                   -> tumor_focality                      ✓ gold_rank=1
+Tumor_Site                       -> enneking_msts_tumor_site            ✗ gold_rank=None
+Tumor_Size_cm                    -> tumor_largest_dimension_diameter    ✓ gold_rank=1
+Tumor_Stage_Pathological         -> ensat_pathologic_stage              ✗ gold_rank=6
+[ollama_chat/qwen2.5:14b | GDC-SM] top1=9/14 MRR=0.708
+--- scored against old GT
+Age                              -> age_at_onset                        ✗ gold_rank=2
+BMI                              -> bmi                                 ✓ gold_rank=1
+Ethnicity_Self_Identify          -> ethnicity                           ✗ gold_rank=2
+Gender                           -> gender                              ✓ gold_rank=1
+Grade                            -> adverse_event_grade                 ✗ gold_rank=4
+Histologic_Type                  -> comorbidity_method_of_diagnosis     ✗ gold_rank=None
+Path_Stage_Primary_Tumor_pT      -> ajcc_pathologic_t                   ✓ gold_rank=1
+Path_Stage_Reg_Lymph_Nodes_pN    -> uicc_pathologic_n                   ✗ gold_rank=3
+Race                             -> race                                ✓ gold_rank=1
+Tumor/Normal                     -> tissue_type                         ✓ gold_rank=1
+Tumor_Focality                   -> tumor_focality                      ✓ gold_rank=1
+Tumor_Site                       -> enneking_msts_tumor_site            ✗ gold_rank=None
+Tumor_Size_cm                    -> tumor_largest_dimension_diameter    ✓ gold_rank=1
+Tumor_Stage_Pathological         -> ensat_pathologic_stage              ✗ gold_rank=6
+[ollama_chat/qwen2.5:14b | old GT] top1=7/14 MRR=0.625
+[ollama_chat/qwen2.5:14b] secs=414.4 llm_parse_failures=0

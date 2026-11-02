@@ -1,0 +1,34 @@
+Loaded default model 'mpnet' on cpu
+--- scored against GDC-SM
+Age                              -> hpv_positive_type                   ✗ gold_rank=8
+BMI                              -> bmi                                 ✓ gold_rank=1
+Ethnicity_Self_Identify          -> ethnicity                           ✓ gold_rank=1
+Gender                           -> gender                              ✓ gold_rank=1
+Grade                            -> who_nte_grade                       ✗ gold_rank=2
+Histologic_Type                  -> papillary_renal_cell_type           ✗ gold_rank=None
+Path_Stage_Primary_Tumor_pT      -> ajcc_pathologic_t                   ✓ gold_rank=1
+Path_Stage_Reg_Lymph_Nodes_pN    -> lymph_node_involvement              ✗ gold_rank=7
+Race                             -> race                                ✓ gold_rank=1
+Tumor/Normal                     -> tissue_type                         ✓ gold_rank=1
+Tumor_Focality                   -> tumor_focality                      ✓ gold_rank=1
+Tumor_Site                       -> tumor_depth_descriptor              ✗ gold_rank=None
+Tumor_Size_cm                    -> tumor_code_id                       ✗ gold_rank=4
+Tumor_Stage_Pathological         -> ann_arbor_pathologic_stage          ✗ gold_rank=4
+[no-llm | GDC-SM] top1=7/14 MRR=0.591
+--- scored against old GT
+Age                              -> hpv_positive_type                   ✗ gold_rank=8
+BMI                              -> bmi                                 ✓ gold_rank=1
+Ethnicity_Self_Identify          -> ethnicity                           ✗ gold_rank=2
+Gender                           -> gender                              ✓ gold_rank=1
+Grade                            -> who_nte_grade                       ✗ gold_rank=2
+Histologic_Type                  -> papillary_renal_cell_type           ✗ gold_rank=None
+Path_Stage_Primary_Tumor_pT      -> ajcc_pathologic_t                   ✓ gold_rank=1
+Path_Stage_Reg_Lymph_Nodes_pN    -> lymph_node_involvement              ✗ gold_rank=12
+Race                             -> race                                ✓ gold_rank=1
+Tumor/Normal                     -> tissue_type                         ✓ gold_rank=1
+Tumor_Focality                   -> tumor_focality                      ✓ gold_rank=1
+Tumor_Site                       -> tumor_depth_descriptor              ✗ gold_rank=None
+Tumor_Size_cm                    -> tumor_code_id                       ✗ gold_rank=4
+Tumor_Stage_Pathological         -> ann_arbor_pathologic_stage          ✗ gold_rank=4
+[no-llm | old GT] top1=6/14 MRR=0.551
+[no-llm] secs=14.2 llm_parse_failures=0

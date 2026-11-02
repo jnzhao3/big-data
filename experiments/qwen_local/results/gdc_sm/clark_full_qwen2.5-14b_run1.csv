@@ -1,0 +1,17 @@
+source,gold,in_shortlist,pred,correct,status,secs,reason
+Case_ID,NONE,True,submitter_id,False,ok,20.7,"Case_ID likely refers to a unique identifier submitted by the source, similar to submitter_id in GDC."
+Tumor/Normal,tissue_type,True,tumor_code,False,ok,2.6,"Tumor/Normal indicates the status of being a tumor or normal sample, similar to tumor_code which can indicate tumor presence."
+Gender,gender,True,gender,True,ok,1.9,Direct match to source column name and context.
+Age,age_at_diagnosis|age_at_index|days_to_birth,True,age_at_diagnosis,True,ok,2.7,"The source column 'Age' likely refers to the age at diagnosis, matching the target column 'age_at_diagnosis'."
+BMI,bmi,True,bmi,True,ok,1.7,Exact match in column name and attribute.
+Race,race,True,race,True,ok,1.6,Direct match in column name and attribute.
+Ethnicity_Self_Identify,ethnicity|race,True,ethnicity,True,ok,3.1,The target column 'ethnicity' matches the attribute of self-identified ethnicity in the source column 'Ethnicity_Self_Identify'.
+Tumor_Site,primary_site|site_of_resection_or_biopsy|tissue_or_organ_of_origin,True,anatomic_site,False,hallucinated,2.3,The column 'anatomic_site' best represents the location or site of the tumor.
+Tumor_Site_Other,NONE,True,tumor_descriptor,False,ok,2.3,"Tumor_Site_Other describes a detailed location of the tumor, similar to tumor_descriptor."
+Tumor_Size_cm,greatest_tumor_dimension|tumor_largest_dimension_diameter|tumor_length_measurement|tumor_width_measurement,True,greatest_tumor_dimension,True,ok,2.0,Represents the size of the tumor in cm.
+Tumor_Focality,tumor_focality,True,tumor_focality,True,ok,1.8,Direct match in naming and attribute representation.
+Histologic_Type,primary_diagnosis,True,histology,False,hallucinated,2.0,Histologic_Type is best represented by the histology attribute in the target columns.
+Grade,tumor_grade,True,tumor_grade,True,ok,3.5,"The source column 'Grade' with values G1, G2, G3, G4 is likely referring to the grading of a tumor, which corresponds to the target column 'tumor_grade'."
+Tumor_Stage_Pathological,ajcc_pathologic_stage|uicc_pathologic_stage,True,ajcc_pathologic_stage,True,ok,2.3,"The target column represents the pathologic stage of the tumor, similar to the source column."
+Path_Stage_Primary_Tumor_pT,ajcc_pathologic_t|uicc_pathologic_t,True,ajcc_pathologic_t,True,ok,2.1,Represents the pathologic stage of the primary tumor.
+Path_Stage_Reg_Lymph_Nodes_pN,ajcc_pathologic_n|uicc_pathologic_n,True,ajcc_pathologic_n,True,ok,1.8,Matches the pathologic stage for lymph nodes.

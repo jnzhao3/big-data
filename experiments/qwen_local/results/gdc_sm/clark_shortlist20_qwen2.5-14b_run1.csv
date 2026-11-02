@@ -1,0 +1,17 @@
+source,gold,in_shortlist,pred,correct,status,secs,reason
+Case_ID,NONE,True,submitter_id,False,ok,5.4,"Case_ID likely represents a unique identifier for cases, similar to submitter_id which is a unique identifier in GDC."
+Tumor/Normal,tissue_type,False,normal_tumor_genotype_snp_match,False,ok,4.7,The source column indicates whether the sample is tumor-normal and matches the target column's binary representation of tumor-normal status.
+Gender,gender,True,gender,True,ok,3.0,Matches the source column's attribute exactly.
+Age,age_at_diagnosis|age_at_index|days_to_birth,True,age_at_onset,False,ok,4.1,"None of the candidates match exactly, but age_at_onset is the closest to representing age-related data."
+BMI,bmi,True,bmi,True,ok,3.8,"The source column 'BMI' contains numerical values representing body mass index, matching the description of the 'bmi' candidate column."
+Race,race,True,race,True,ok,2.8,Values match racial categories.
+Ethnicity_Self_Identify,ethnicity|race,True,ethnicity,True,ok,3.5,Values match the concept of ethnic self-identification.
+Tumor_Site,primary_site|site_of_resection_or_biopsy|tissue_or_organ_of_origin,True,biospecimen_anatomic_site,False,ok,4.1,Values represent anatomic sites similar to tumor locations.
+Tumor_Site_Other,NONE,True,biospecimen_anatomic_site,False,ok,3.7,The source column values describe anatomic sites similar to the candidate column values.
+Tumor_Size_cm,greatest_tumor_dimension|tumor_largest_dimension_diameter|tumor_length_measurement|tumor_width_measurement,False,NONE,False,ok,4.4,None of the candidate columns match the attribute of tumor size in cm.
+Tumor_Focality,tumor_focality,True,tumor_focality,True,ok,3.2,Matches exactly with the source column values.
+Histologic_Type,primary_diagnosis,False,histologic_progression_type,False,ok,4.2,"The closest match in terms of content and context, though not an exact fit, is histologic progression type."
+Grade,tumor_grade,True,tumor_grade,True,ok,3.9,Source values match candidate values exactly for tumor grade.
+Tumor_Stage_Pathological,ajcc_pathologic_stage|uicc_pathologic_stage,True,ajcc_pathologic_stage,True,ok,3.4,Matches the format and values of pathological staging.
+Path_Stage_Primary_Tumor_pT,ajcc_pathologic_t|uicc_pathologic_t,True,ajcc_pathologic_t,True,ok,3.9,Values match the pathologic T stage format.
+Path_Stage_Reg_Lymph_Nodes_pN,ajcc_pathologic_n|uicc_pathologic_n,True,ajcc_pathologic_n,True,ok,3.6,Matches the pathologic N staging system
