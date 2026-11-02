@@ -1,0 +1,13 @@
+# Separate venv for magneto_ollama.py (do not install into a shared env). Run from the repo root:
+# Magneto itself is not on PyPI; install it from a clone (tested at commit 6620623):
+#   git clone https://github.com/VIDA-NYU/magneto-matcher third_party/magneto-matcher
+#   python -m venv .venv_magneto
+#   .venv_magneto/bin/pip install -e third_party/magneto-matcher/algorithms/magneto
+#   .venv_magneto/bin/pip install -r experiments/qwen_local/requirements-magneto.txt
+litellm==1.106.6
+json_repair==0.64.3
+valentine==0.5.0  # 1.0.x breaks Magneto: 'MatcherResults' object has no attribute 'pop'
+sentence-transformers==6.2.0
+torch==2.15.0
+transformers==5.22.1
+pandas==3.1.0

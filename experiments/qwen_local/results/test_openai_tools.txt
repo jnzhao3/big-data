@@ -1,0 +1,9 @@
+[qwen3:4b] chat 5.0s -> ''
+[qwen3:4b] tools 12.8s finish=tool_calls calls= [('get_column_stats', '{"table":"source","column":"age_at_diagnosis"}')] content= ''
+[qwen3:4b] after tool result 5.4s -> "The column 'age_at_diagnosis' in the source table has **42 null values**."
+[qwen2.5:14b] chat 4.0s -> 'OK'
+[qwen2.5:14b] tools 4.0s finish=tool_calls calls= [('get_column_stats', '{"table":"source","column":"age_at_diagnosis"}')] content= [non-English output replaced; model wrote a few Thai characters followed by Chinese. English translation: "Look up the statistics of column 'age_at_diagnosis' in table 'source'. This helps us understand the column, including the number of nulls."]
+[qwen2.5:14b] after tool result 1.9s -> [model answered in Chinese; English translation: "Column 'age_at_diagnosis' in table 'source' has 42 null values. Its data type is float."]
+[qwen3.8:27b-q4_K_M] chat 13.7s -> 'OK'
+[qwen3.8:27b-q4_K_M] tools 9.0s finish=tool_calls calls= [('get_column_stats', '{"table":"source","column":"age_at_diagnosis"}')] content= ''
+[qwen3.8:27b-q4_K_M] after tool result 4.8s -> "The column `age_at_diagnosis` in the **source** table has **42 nulls**. It's a float-type column with null values presen"

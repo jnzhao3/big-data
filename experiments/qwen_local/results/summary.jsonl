@@ -1,0 +1,8 @@
+{"tag": "clark_shortlist20_qwen2.5-14b_run1", "total_secs": 62.3, "n_cols": 16, "acc_gold_cols": "8/14", "shortlist_recall": "11/14", "acc_all_incl_NONE": "8/16", "statuses": {"ok": 16}}
+{"tag": "clark_shortlist20_qwen2.5-14b_run2", "total_secs": 30.5, "n_cols": 16, "acc_gold_cols": "8/14", "shortlist_recall": "11/14", "acc_all_incl_NONE": "8/16", "statuses": {"ok": 16}}
+{"tag": "clark_full_qwen2.5-14b_run1", "total_secs": 54.4, "n_cols": 16, "acc_gold_cols": "9/14", "shortlist_recall": "14/14", "acc_all_incl_NONE": "9/16", "statuses": {"ok": 14, "hallucinated": 2}}
+{"tag": "clark_full_qwen2.5-14b_run2", "total_secs": 35.4, "n_cols": 16, "acc_gold_cols": "11/14", "shortlist_recall": "14/14", "acc_all_incl_NONE": "11/16", "statuses": {"ok": 16}}
+{"tag": "clark_shortlist20_qwen3.8-27b-q4_K_M_run1", "total_secs": 186.5, "n_cols": 16, "acc_gold_cols": "10/14", "shortlist_recall": "11/14", "acc_all_incl_NONE": "11/16", "statuses": {"ok": 16}}
+{"tag": "clark_shortlist20_qwen3.8-27b-q4_K_M_run2", "total_secs": 178.6, "n_cols": 16, "acc_gold_cols": "9/14", "shortlist_recall": "11/14", "acc_all_incl_NONE": "9/16", "statuses": {"ok": 16}}
+{"tag": "clark_full_qwen3.8-27b-q4_K_M_run1", "total_secs": 242.1, "n_cols": 16, "acc_gold_cols": "8/14", "shortlist_recall": "14/14", "acc_all_incl_NONE": "8/16", "statuses": {"ok": 16}}
+{"tag": "clark_full_qwen3.8-27b-q4_K_M_run2", "total_secs": 200.2, "n_cols": 16, "acc_gold_cols": "9/14", "shortlist_recall": "14/14", "acc_all_incl_NONE": "10/16", "statuses": {"ok": 16}}

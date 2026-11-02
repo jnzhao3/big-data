@@ -1,0 +1,6 @@
+qwen3:4b cold load_s=9.0 prompt_tok=16 gen_tok=99 tok/s=63.5 total_s=10.6 | reply: We are writing three sentences about databases. Let's make sure they are clear, 
+qwen3:4b warm load_s=0.0 prompt_tok=16 gen_tok=200 tok/s=64.7 total_s=3.1 | reply: We are writing three sentences about databases. We want them to be informative a
+qwen2.5:14b cold load_s=3.8 prompt_tok=35 gen_tok=66 tok/s=20.6 total_s=7.3 | reply: Databases are essential tools for storing and managing large volumes of data eff
+qwen2.5:14b warm load_s=0.0 prompt_tok=35 gen_tok=72 tok/s=20.0 total_s=3.7 | reply: Databases are essential tools for storing and organizing large amounts of data e
+qwen3.8:27b-q4_K_M cold load_s=10.7 prompt_tok=18 gen_tok=68 tok/s=12.8 total_s=16.5 | reply: Databases are structured systems designed to efficiently organize, store, and ma
+qwen3.8:27b-q4_K_M warm load_s=0.0 prompt_tok=18 gen_tok=62 tok/s=13.0 total_s=5.1 | reply: Databases serve as organized repositories for storing, managing, and retrieving 
