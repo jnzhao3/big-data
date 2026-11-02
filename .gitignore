@@ -1,1 +1,15 @@
 datasets/*
+!datasets/README.md
+
+# third-party code cloned locally (e.g. magneto-matcher)
+third_party/
+
+# virtual environments
+.venv*/
+
+# large per-run experiment outputs; commit only small summaries
+experiments/*/results/raw/
+
+.DS_Store
+.ipynb_checkpoints/
+__pycache__/
