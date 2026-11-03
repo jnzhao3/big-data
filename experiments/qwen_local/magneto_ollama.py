@@ -1,7 +1,7 @@
 """Run Magneto (VIDA-NYU) on one GDC study with its LLM reranker pointed at local Ollama via LiteLLM.
 Scores the same matches against GDC-SM (259 pairs, n:m) and the older GDC_new groundtruth.csv (197 rows).
 
-Usage (from repo root): .venv_magneto/bin/python -I experiments/qwen_local/magneto_ollama.py --llm ollama_chat/qwen2.5:14b
+Usage (from repo root, shared env from env/): ~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py --llm ollama_chat/qwen2.5:14b
        [--study clark] [--no-llm] [--data-dir <GDC_new>] [--gt-dir <GDC-SM ground-truth>]
 """
 import argparse, os, time, warnings

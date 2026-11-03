@@ -21,7 +21,6 @@ against both. The predictions are unchanged; only the scoring is new. Conclusion
 | `clark_match.py` | Column matching test: for each source column, the model picks one target column from the candidates. Scored against GDC-SM (`--gt gdc-sm`, default) or the old groundtruth (`--gt old`); `--rescore` rescores an earlier run's predictions without calling the model |
 | `run_all.sh` | 2 models x 2 candidate modes x 2 runs |
 | `magneto_ollama.py` | Runs Magneto (VIDA-NYU) with its LLM reranker pointed at local Ollama; scores against both ground truths |
-| `requirements-magneto.txt` | Dependencies for the separate Magneto venv (includes the valentine version pin) |
 | `results/` | Original runs, scored against the old groundtruth when they were made |
 | `results/gdc_sm/` | The same clark predictions rescored against GDC-SM, plus Magneto reruns scored against both ground truths |
 
@@ -34,25 +33,31 @@ against both. The predictions are unchanged; only the scoring is new. Conclusion
    or point `--data-dir` / the `GDC_DATA_DIR` environment variable somewhere else.
    GDC-SM ground truth (Zenodo 14963588) goes in `datasets/gdc_sm/extracted/data/ground-truth/`
    (override with `--gt-dir` / `GDC_SM_GT_DIR`); see `datasets/README.md`.
-3. `clark_match.py` only needs pandas (tested with Python 3.11).
+3. Python environment: use the shared environment in `env/` at the repo root (`bash env/setup_env.sh`, which
+   creates `~/venvs/harmonize`). Everything here, Magneto included, runs in it. Magneto comes from the
+   `magneto-python` 0.2.0 package that bdi-kit installs, so no separate clone or venv is needed.
 
 ```bash
+PY=~/venvs/harmonize/bin/python
 ./bench_speed.sh qwen2.5:14b qwen3.8:27b-q4_K_M
-python test_openai_tools.py qwen2.5:14b
-python -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1
-PYTHON=python ./run_all.sh            # all 8 configs, about 20 minutes
+$PY test_openai_tools.py qwen2.5:14b
+$PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1
+PYTHON=$PY ./run_all.sh               # all 8 configs, about 20 minutes
 # rescore saved predictions against GDC-SM (no model calls)
-python -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1 --rescore results --out-dir results/gdc_sm
+$PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1 --rescore results --out-dir results/gdc_sm
 ```
 
-Magneto (separate venv; run from the repo root; `third_party/` and `.venv*/` are ignored by `.gitignore`):
+Magneto (run from the repo root):
 
 ```bash
-git clone https://github.com/VIDA-NYU/magneto-matcher third_party/magneto-matcher
-python -m venv .venv_magneto
-.venv_magneto/bin/pip install -e third_party/magneto-matcher/algorithms/magneto -r experiments/qwen_local/requirements-magneto.txt
-.venv_magneto/bin/python -I experiments/qwen_local/magneto_ollama.py --llm ollama_chat/qwen2.5:14b
+~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py --llm ollama_chat/qwen2.5:14b
+~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py --no-llm
 ```
+
+The results in `results/` were first produced in separate environments: a Python 3.11 env for `clark_match.py`, and a
+Magneto venv built from the GitHub clone with litellm 1.106.6 and transformers 5. On 2026-11-02, both Magneto
+runs were repeated in the shared environment. The no-LLM run and the qwen2.5:14b reranker run (T=0) gave the same
+predictions for every column as the saved results.
 
 ## 1. Speed (`results/bench_speed.txt`)
 
