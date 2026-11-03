@@ -1,3 +1,4 @@
+import json
 import math
 
 import pandas as pd
@@ -66,3 +67,24 @@ def test_majority_vote_ties_go_to_the_earliest_run():
     out = {r["source_column"]: r for r in majority_vote(runs, "vote3")}
     assert out["Age"]["targets"] == ["AGE_AT_INDEX"] and out["Age"]["votes"] == {"age_at_diagnosis": 1, "age_at_index": 2}
     assert out["Race"]["targets"] == ["race"] and out["Race"]["run_id"] == "vote3"
+
+
+def test_stability_cli_groups_items_by_the_run_headers_condition(tmp_path, capsys):
+    from hbench.cli import main
+    from hbench.design import condition_id, make_condition
+    from hbench.runlog import RunLog
+
+    paths = []
+    for i, temp in enumerate([0, 0, 0.8, 0.8]):
+        cond = make_condition(method={"name": "m"}, model={"name": "q"}, decoding={"temperature": temp},
+                              engine={"protocol": "natural"}, data={"study": "clark"}, replicate=i)
+        log = RunLog.create(tmp_path, "e", "t", "clark", run_id=f"r{i}")
+        log.emit("run_header", condition=cond, condition_id=condition_id(cond))
+        log.close()
+        items = pd.DataFrame({"kind": ["sm", "sm"], "study": ["clark", "clark"], "run_id": [f"r{i}"] * 2,
+                              "item_id": ["a", "b"], "pred": ["x", "y" if i % 2 else "z"], "correct": ["True", ""]})
+        items.to_csv(log.run_dir / "items.gdc-sm.csv", index=False)  # as the scripts write it: no condition_id
+        paths.append(str(log.run_dir / "items.gdc-sm.csv"))
+    assert main(["stability", *paths]) == 0
+    keys = list(json.loads(capsys.readouterr().out))
+    assert len(keys) == 2 and all(k.startswith("sm:clark:") for k in keys)  # T=0 and T=0.8 are not pooled

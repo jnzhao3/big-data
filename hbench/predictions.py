@@ -12,6 +12,8 @@ Every method writes, or is adapted to, these records:
 - shown: the candidates the method was shown (list), "*" for the whole target schema, or null if unknown.
   Without it, a valid but unshown target cannot be told apart from a plain wrong one.
 - status: ok | invalid_output | error. Raw model output belongs in the run log, not here.
+- evidence (optional): {"span_id": the llm_call that decided it, "margin": logprob margin of the decision,
+  "runner_up": ..., "p_flip": ...} (see hbench.decisions). Scorers carry margin and span into item tables.
 """
 
 from __future__ import annotations
@@ -109,6 +111,8 @@ def validate(records, target_names=None) -> tuple[list[str], list[str]]:
             continue
         if r.get("scores") is not None and len(r["scores"]) != len(r["targets"]):
             errors.append(f"{where}: scores and targets differ in length")
+        if r.get("evidence") is not None and not isinstance(r["evidence"], dict):
+            errors.append(f"{where}: evidence must be an object (span_id, margin, ...)")
         if r["output_type"] == "top1" and len(r["targets"]) > 1:
             errors.append(f"{where}: top1 output with {len(r['targets'])} targets")
         if kind == "sm" and valid_targets is not None:

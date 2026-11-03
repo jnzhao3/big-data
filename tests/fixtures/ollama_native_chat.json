@@ -1,0 +1,404 @@
+{
+ "request": {
+  "model": "qwen2.5:14b",
+  "messages": [
+   {
+    "role": "user",
+    "content": "Pick the GDC column for source column \"Gender\" from [gender, race]. Respond with JSON only: {\"target\": \"<name>\"}"
+   }
+  ],
+  "stream": false,
+  "format": "json",
+  "logprobs": true,
+  "top_logprobs": 5,
+  "options": {
+   "temperature": 0,
+   "seed": 1,
+   "num_ctx": 32768
+  }
+ },
+ "response": {
+  "model": "qwen2.5:14b",
+  "created_at": "2026-11-03T03:32:10.371103Z",
+  "message": {
+   "role": "assistant",
+   "content": "{\"target\": \"gender\"}"
+  },
+  "done": true,
+  "done_reason": "stop",
+  "logprobs": [
+   {
+    "token": "{\"",
+    "logprob": -2.5033982637978625e-06,
+    "bytes": [
+     123,
+     34
+    ],
+    "top_logprobs": [
+     {
+      "token": "{\"",
+      "logprob": -2.5033982637978625e-06,
+      "bytes": [
+       123,
+       34
+      ]
+     },
+     {
+      "token": "{\\\"",
+      "logprob": -13.17895793914795,
+      "bytes": [
+       123,
+       92,
+       34
+      ]
+     },
+     {
+      "token": "{'",
+      "logprob": -14.90674877166748,
+      "bytes": [
+       123,
+       39
+      ]
+     },
+     {
+      "token": "{\n",
+      "logprob": -15.88318920135498,
+      "bytes": [
+       123,
+       10
+      ]
+     },
+     {
+      "token": ">{\"",
+      "logprob": -16.338125228881836,
+      "bytes": [
+       62,
+       123,
+       34
+      ]
+     }
+    ]
+   },
+   {
+    "token": "target",
+    "logprob": 0,
+    "bytes": [
+     116,
+     97,
+     114,
+     103,
+     101,
+     116
+    ],
+    "top_logprobs": [
+     {
+      "token": "target",
+      "logprob": 0,
+      "bytes": [
+       116,
+       97,
+       114,
+       103,
+       101,
+       116
+      ]
+     },
+     {
+      "token": "\ttarget",
+      "logprob": -17.563644409179688,
+      "bytes": [
+       9,
+       116,
+       97,
+       114,
+       103,
+       101,
+       116
+      ]
+     },
+     {
+      "token": "(target",
+      "logprob": -19.71341323852539,
+      "bytes": [
+       40,
+       116,
+       97,
+       114,
+       103,
+       101,
+       116
+      ]
+     },
+     {
+      "token": ".target",
+      "logprob": -20.180931091308594,
+      "bytes": [
+       46,
+       116,
+       97,
+       114,
+       103,
+       101,
+       116
+      ]
+     },
+     {
+      "token": " target",
+      "logprob": -21.196773529052734,
+      "bytes": [
+       32,
+       116,
+       97,
+       114,
+       103,
+       101,
+       116
+      ]
+     }
+    ]
+   },
+   {
+    "token": "\":",
+    "logprob": -1.8358399756834842e-05,
+    "bytes": [
+     34,
+     58
+    ],
+    "top_logprobs": [
+     {
+      "token": "\":",
+      "logprob": -1.8358399756834842e-05,
+      "bytes": [
+       34,
+       58
+      ]
+     },
+     {
+      "token": "\":\"",
+      "logprob": -10.904704093933105,
+      "bytes": [
+       34,
+       58,
+       34
+      ]
+     },
+     {
+      "token": "\u201d:",
+      "logprob": -18.283161163330078,
+      "bytes": [
+       226,
+       128,
+       157,
+       58
+      ]
+     },
+     {
+      "token": "\"):",
+      "logprob": -18.734466552734375,
+      "bytes": [
+       34,
+       41,
+       58
+      ]
+     },
+     {
+      "token": " \":",
+      "logprob": -19.343650817871094,
+      "bytes": [
+       32,
+       34,
+       58
+      ]
+     }
+    ]
+   },
+   {
+    "token": " \"",
+    "logprob": 0,
+    "bytes": [
+     32,
+     34
+    ],
+    "top_logprobs": [
+     {
+      "token": " \"",
+      "logprob": 0,
+      "bytes": [
+       32,
+       34
+      ]
+     },
+     {
+      "token": " \"<",
+      "logprob": -24.188236236572266,
+      "bytes": [
+       32,
+       34,
+       60
+      ]
+     },
+     {
+      "token": " \"-",
+      "logprob": -24.664892196655273,
+      "bytes": [
+       32,
+       34,
+       45
+      ]
+     },
+     {
+      "token": " \"_",
+      "logprob": -25.166168212890625,
+      "bytes": [
+       32,
+       34,
+       95
+      ]
+     },
+     {
+      "token": " \"/",
+      "logprob": -25.84546661376953,
+      "bytes": [
+       32,
+       34,
+       47
+      ]
+     }
+    ]
+   },
+   {
+    "token": "gender",
+    "logprob": -5.1260126383567695e-06,
+    "bytes": [
+     103,
+     101,
+     110,
+     100,
+     101,
+     114
+    ],
+    "top_logprobs": [
+     {
+      "token": "gender",
+      "logprob": -5.1260126383567695e-06,
+      "bytes": [
+       103,
+       101,
+       110,
+       100,
+       101,
+       114
+      ]
+     },
+     {
+      "token": "race",
+      "logprob": -12.194329261779785,
+      "bytes": [
+       114,
+       97,
+       99,
+       101
+      ]
+     },
+     {
+      "token": " gender",
+      "logprob": -15.628739356994629,
+      "bytes": [
+       32,
+       103,
+       101,
+       110,
+       100,
+       101,
+       114
+      ]
+     },
+     {
+      "token": "Gender",
+      "logprob": -17.828432083129883,
+      "bytes": [
+       71,
+       101,
+       110,
+       100,
+       101,
+       114
+      ]
+     },
+     {
+      "token": "\u6027\u522b",
+      "logprob": -17.936037063598633,
+      "bytes": [
+       230,
+       128,
+       167,
+       229,
+       136,
+       171
+      ]
+     }
+    ]
+   },
+   {
+    "token": "\"}",
+    "logprob": -1.1920928955078125e-07,
+    "bytes": [
+     34,
+     125
+    ],
+    "top_logprobs": [
+     {
+      "token": "\"}",
+      "logprob": -1.1920928955078125e-07,
+      "bytes": [
+       34,
+       125
+      ]
+     },
+     {
+      "token": "\"}}",
+      "logprob": -15.929553985595703,
+      "bytes": [
+       34,
+       125,
+       125
+      ]
+     },
+     {
+      "token": "\"}\n",
+      "logprob": -18.46514129638672,
+      "bytes": [
+       34,
+       125,
+       10
+      ]
+     },
+     {
+      "token": "\"})",
+      "logprob": -20.696735382080078,
+      "bytes": [
+       34,
+       125,
+       41
+      ]
+     },
+     {
+      "token": ")}",
+      "logprob": -20.84012222290039,
+      "bytes": [
+       41,
+       125
+      ]
+     }
+    ]
+   }
+  ],
+  "total_duration": 2754499333,
+  "load_duration": 2076804375,
+  "prompt_eval_count": 58,
+  "prompt_eval_cached_count": 0,
+  "prompt_eval_duration": 378379000,
+  "eval_count": 7,
+  "eval_duration": 293526000
+ }
+}

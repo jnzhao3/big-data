@@ -11,7 +11,7 @@ As of 2026-11-02:
 | Benchmark data selection and documentation | [`datasets/`](datasets/README.md) | Freya |
 | Shared Python environment | [`env/`](env/README.md) | Freya |
 | Feasibility study of local LLMs via Ollama (recommended: `qwen2.5:14b`) | [`experiments/qwen_local/`](experiments/qwen_local/README.md) | Freya |
-| Shared scoring, prediction format and run logging (`hbench`) | [`hbench/`](hbench/README.md), `tests/` | Freya |
+| Shared scoring, prediction format, run logging, engine audit and replay (`hbench`) | [`hbench/`](hbench/README.md), `tests/` | Freya |
 
 ## Conventions
 
@@ -66,6 +66,9 @@ python -m hbench score predictions.jsonl --gt gdc-sm
 
 ### LLM calls
 
-- Set the temperature explicitly in every call; the Ollama default is not zero.
+- Set the temperature explicitly in every call; the Ollama default is not zero and differs by endpoint (0.8 on `/api/chat`, 1.0 on `/v1`).
+- Run Ollama as the Homebrew service. `env/engine-lock.json` pins its version, models and settings; see `env/README.md`.
+- Log every call: use `hbench.llm.LLMClient`, or LiteLLM's `openai/` route with `hbench.runlog.litellm_cb`. The `ollama_chat/` route cannot return logprobs.
+- Open runs with `hbench.runlog.session.start_run` and check them with `python -m hbench log validate <run_dir>`.
 - BDI-Kit's LLM matchers default to the cloud model `openai/gpt-4o-mini`; specify an Ollama model for local runs.
 - BDI-Kit returns cached results for repeated calls. Pass `use_cache=False` or clear `~/.cache/bdikit/runs/` before each run.

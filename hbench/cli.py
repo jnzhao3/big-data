@@ -69,6 +69,7 @@ def score_file(pred_path: Path, data: Data, gts, vm_mode: str):
     from .score_vm import score_vm
 
     recs = read_predictions(pred_path)
+    cond_id = _run_condition_id(pred_path.parent)
     errors, _ = validate(recs)
     if errors:
         raise ValueError(f"{pred_path}: {len(errors)} invalid records, e.g. {errors[0]}")
@@ -87,10 +88,20 @@ def score_file(pred_path: Path, data: Data, gts, vm_mode: str):
                 continue
             items.insert(0, "run_id", run_id)
             items.insert(1, "kind", kind)
+            items.insert(2, "condition_id", cond_id)
             frames.append(items)
             summaries.append({"run_id": run_id, **s})
         out[gt] = (pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(), summaries)
     return out
+
+
+def _run_condition_id(run_dir: Path):
+    """condition_id from the run header when the predictions sit in a run folder (so stability can group)."""
+    from .runlog.writer import read_events
+    if not any(run_dir.glob("events.*.jsonl")):
+        return None
+    header = next((e for e in read_events(run_dir) if e["type"] == "run_header"), {})
+    return header.get("condition_id")
 
 
 def cmd_score(a) -> int:
@@ -114,18 +125,140 @@ def cmd_score(a) -> int:
     return 0
 
 
+def _read_items(path) -> pd.DataFrame:
+    """An items table. Tables written by the experiment scripts have no condition_id column (only `hbench score`
+    adds one), so take it from the run header of the folder the table sits in; "" when there is none."""
+    df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    if "condition_id" not in df:
+        df["condition_id"] = _run_condition_id(Path(path).parent) or ""
+    return df
+
+
 def cmd_stability(a) -> int:
     from .stability import stability_report
 
-    long = pd.concat([pd.read_csv(p, dtype=str, keep_default_na=False) for p in a.items], ignore_index=True)
+    long = pd.concat([_read_items(p) for p in a.items], ignore_index=True)
     long["correct"] = long["correct"].map(lambda x: None if x == "" else x == "True")
+    long["margin"] = pd.to_numeric(long["margin"], errors="coerce") if "margin" in long else None
     report = {}
-    for (kind, study), g in long.groupby(["kind", "study"]):
-        report[f"{kind}:{study}"] = stability_report(g[["run_id", "item_id", "pred", "correct"]])
+    for (kind, study, cid), g in long.groupby(["kind", "study", "condition_id"], dropna=False):
+        key = f"{kind}:{study}" + (f":{cid}" if cid else "")
+        report[key] = stability_report(g[["run_id", "item_id", "pred", "correct", "margin"]])
     text = json.dumps(report, indent=1, default=str)
     if a.out:
         _write_new(Path(a.out), text + "\n", a.force)
     print(text)
+    return 0
+
+
+def cmd_engine(a) -> int:
+    from .engine import ENGINE_LOCK, check, engine_snapshot, lock_from_snapshot
+
+    snap = engine_snapshot(a.models)
+    if a.action == "snapshot":
+        print(json.dumps(snap, indent=1, default=str))
+        return 0
+    if a.action == "lock":
+        lock = lock_from_snapshot(snap)
+        if a.write:
+            _write_new(ENGINE_LOCK, json.dumps(lock, indent=1, sort_keys=True) + "\n", a.force)
+            print(f"wrote {ENGINE_LOCK}")
+        else:
+            print(json.dumps(lock, indent=1, sort_keys=True))
+        return 0
+    drift = check(snap)
+    print("\n".join(drift) if drift else "ok: engine matches env/engine-lock.json")
+    return 1 if drift else 0
+
+
+def cmd_audit(a) -> int:
+    from .engine import audit_problems, audit_run
+
+    summary = audit_run(a.run_dir)
+    print(json.dumps(summary, indent=1))
+    probs = audit_problems(summary)
+    for x in probs:
+        print("problem:", x)
+    return 1 if probs else 0
+
+
+def cmd_replay(a) -> int:
+    from .design import make_condition
+    from .replay import client_for, compare, load_calls, replay_call
+    from .runlog.session import start_run
+    from .runlog.writer import read_events
+
+    calls, blobs = load_calls(a.run_dir)
+    idx = [int(x) for x in a.calls.split(",")] if a.calls else list(range(len(calls)))
+    bad = [i for i in idx if not 0 <= i < len(calls)]
+    if bad:
+        sys.exit(f"call indices {bad} out of range: the run has {len(calls)} replayable calls")
+    calls = [calls[i] for i in idx]
+    if not calls:
+        sys.exit("no replayable llm_call events in that run")
+    header = next((e for e in read_events(a.run_dir) if e["type"] == "run_header"), {})
+    src_cond = header.get("condition") or {}
+    study = (src_cond.get("data") or {}).get("study") or (header.get("task") or {}).get("study") or "unknown"
+    model = blobs.get(calls[0]["request_raw"]).get("model")
+    rows = []
+    for protocol in a.protocol:
+        cond = make_condition(
+            method={"name": "replay", "protocol": protocol, "source_run": Path(a.run_dir).name},
+            model={"name": model}, decoding={"temperature": (calls[0].get("decoding") or {}).get("temperature")},
+            engine={"transport": calls[0].get("transport"), "protocol": "cold" if protocol == "cold" else "natural"},
+            data={"study": study})
+        log = start_run(Path(a.out), "replay", cond, task={"kind": "replay", "source_run": str(a.run_dir)},
+                        models=[model])
+        done = []
+        try:
+            for rep in range(a.repeat):
+                for i, ev in zip(idx, calls):
+                    res = replay_call(ev, blobs, client_for(ev, log), protocol, step=i)
+                    done.append((rep, i, ev, res.span_id))
+        finally:
+            log.close()
+        by_span = {e.get("span_id"): e for e in read_events(log.run_dir)}
+        both = _Blobs(blobs, log.blobs)
+        mine = [{"protocol": protocol, "repeat": rep, "source_call": i, **compare(ev, by_span[span], both)}
+                for rep, i, ev, span in done]
+        rows += mine
+        pd.DataFrame(mine).to_csv(log.run_dir / "replay_compare.csv", index=False)
+        print(f"[{protocol}] run {log.run_dir}")
+    df = pd.DataFrame(rows)
+    # calls without logprobs or without a decision leave these columns empty, so aggregate whatever is there
+    cols = [c for c in ("same_text", "same_tokens", "bitwise_same_logprobs", "decision_flipped") if c in df]
+    df[cols] = df[cols].astype(float)
+    agg = {**{c: "mean" for c in cols},
+           **({"max_abs_dlogprob_chosen": "max"} if "max_abs_dlogprob_chosen" in df else {}),
+           **({"d_margin": lambda x: x.abs().max()} if "d_margin" in df else {})}
+    print(df.groupby("protocol").agg(agg).to_string())
+    return 0
+
+
+class _Blobs:
+    """Read blobs from either store (source run and replay run may live under different roots)."""
+    def __init__(self, *stores):
+        self.stores = stores
+
+    def get(self, ref):
+        for st in self.stores:
+            try:
+                return st.get(ref)
+            except FileNotFoundError:
+                continue
+        raise FileNotFoundError(ref)
+
+
+def cmd_llm(a) -> int:
+    from .llm.record import rederive
+    from .runlog.writer import BlobStore, read_events
+
+    run_dir = Path(a.run_dir)
+    blobs = BlobStore(run_dir.parent / "_blobs")
+    rows = [rederive(e, blobs) for e in read_events(run_dir) if e["type"] == "llm_call"]
+    out = run_dir / "llm_calls.rederived.jsonl"
+    _write_new(out, "".join(json.dumps(r, default=str) + "\n" for r in rows), a.force)
+    print(f"wrote {len(rows)} rederived calls to {out}")
     return 0
 
 
@@ -172,6 +305,31 @@ def main(argv=None) -> int:
     t.add_argument("--out", default=None)
     t.add_argument("--force", action="store_true")
     t.set_defaults(func=cmd_stability)
+
+    e = sub.add_parser("engine", help="engine snapshot, lock file, drift check")
+    e.add_argument("action", choices=["snapshot", "lock", "check"])
+    e.add_argument("--models", nargs="+", default=["qwen2.5:14b"])
+    e.add_argument("--write", action="store_true", help="lock: write env/engine-lock.json")
+    e.add_argument("--force", action="store_true")
+    e.set_defaults(func=cmd_engine)
+
+    au = sub.add_parser("audit", help="join a run's LLM calls with the Ollama server log")
+    au.add_argument("run_dir")
+    au.set_defaults(func=cmd_audit)
+
+    rp = sub.add_parser("replay", help="replay a run's LLM calls under engine protocols and compare")
+    rp.add_argument("run_dir")
+    rp.add_argument("--protocol", nargs="+", default=["as_is"], choices=["as_is", "cold", "resend", "after_unrelated"])
+    rp.add_argument("--calls", default=None, help="comma-separated call indices (default: all)")
+    rp.add_argument("--repeat", type=int, default=1)
+    rp.add_argument("--out", required=True, help="raw-results root for the replay runs")
+    rp.set_defaults(func=cmd_replay)
+
+    ll = sub.add_parser("llm", help="re-derive normalized llm_call fields from stored raw payloads")
+    ll.add_argument("action", choices=["rederive"])
+    ll.add_argument("run_dir")
+    ll.add_argument("--force", action="store_true")
+    ll.set_defaults(func=cmd_llm)
 
     lg = sub.add_parser("log", help="check a run directory")
     lg.add_argument("action", choices=["validate"])

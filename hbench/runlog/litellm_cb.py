@@ -5,9 +5,11 @@
     ...                                   # any litellm.completion / acompletion in this process
     litellm_cb.uninstall(cb)
 
-Besides the messages LiteLLM was given, it records the request body actually sent to the server
-(additional_args["complete_input_dict"]): routes rewrite messages, e.g. LiteLLM 1.82.6's ollama_chat/
-route drops assistant tool_calls. Calls to a non-local api_base are flagged with cloud_call=True.
+Each call becomes an llm_call in the hbench.llm_call/2 schema (see hbench.llm). The request body actually sent
+(additional_args["complete_input_dict"]) is the raw request: routes rewrite messages, e.g. LiteLLM 1.82.6's
+ollama_chat/ route drops assistant tool_calls. Logprobs and cached-token counts are available only on routes
+that keep them (openai/ with logprobs=True); others list them under `unavailable`. Calls to a non-local
+api_base are flagged with cloud_call=True.
 """
 
 from __future__ import annotations
@@ -20,7 +22,8 @@ from urllib.parse import urlparse
 
 from litellm.integrations.custom_logger import CustomLogger
 
-from .llm import log_llm_call
+from ..llm.normalize import normalize_openai, normalize_usage_only
+from ..llm.record import record_llm_call
 from .writer import RunLog
 
 PARENT_SPAN: contextvars.ContextVar[str | None] = contextvars.ContextVar("hbench_parent_span", default=None)
@@ -100,42 +103,52 @@ class HBenchLiteLLMLogger(CustomLogger):
                 return
             if call_id:
                 self._done.add(call_id)
-                self._pending.discard(call_id)
             request_body = self._requests.pop(call_id, None)
+        try:
+            self._write(kwargs, response_obj, start_time, end_time, failed, call_id, request_body)
+        finally:
+            with self._lock:  # only now is the call's event on disk, so wait() may return
+                self._pending.discard(call_id)
+
+    def _write(self, kwargs, response_obj, start_time, end_time, failed, call_id, request_body):
         if request_body is None:
             request_body = _plain((kwargs.get("additional_args") or {}).get("complete_input_dict"))
         slo = kwargs.get("standard_logging_object") or {}
         lp = kwargs.get("litellm_params") or {}
         provider = slo.get("custom_llm_provider") or lp.get("custom_llm_provider")
         api_base = slo.get("api_base") or lp.get("api_base")
-        response, usage, error = None, None, None
+        response, error = None, None
         if failed:
             exc = kwargs.get("exception")
             error = f"{type(exc).__name__}: {exc}" if exc is not None else (slo.get("error_str") or "unknown error")
         else:
-            try:
-                msg = response_obj.choices[0].message
-                response = {"content": getattr(msg, "content", None),
-                            "tool_calls": _plain(getattr(msg, "tool_calls", None)),
-                            "finish_reason": getattr(response_obj.choices[0], "finish_reason", None),
-                            "model": getattr(response_obj, "model", None)}
-            except Exception:  # noqa: BLE001 - embeddings or unexpected shapes
-                response = {"raw": _plain(response_obj)}
-            u = getattr(response_obj, "usage", None)
-            usage = {"prompt_tokens": getattr(u, "prompt_tokens", slo.get("prompt_tokens")),
-                     "completion_tokens": getattr(u, "completion_tokens", slo.get("completion_tokens"))}
+            response = _plain(response_obj)
+            hidden = getattr(response_obj, "_hidden_params", None)
+            if isinstance(response, dict) and hidden:
+                response["_litellm_hidden_params"] = _plain({k: v for k, v in hidden.items()
+                                                             if k in ("api_base", "custom_llm_provider", "model_id",
+                                                                      "litellm_model_name", "_response_ms")})
+        if request_body is None:  # keep at least what LiteLLM was given
+            request_body = {"model": kwargs.get("model"), "messages": _plain(kwargs.get("messages")),
+                            **_plain(kwargs.get("optional_params") or {})}
+        # LiteLLM converts every provider's reply to the OpenAI shape; only some routes keep logprobs and the
+        # cached-token count (openai/ does; ollama_chat/ rejects logprobs and drops prompt_eval_cached_count).
+        if provider in ("ollama", "ollama_chat"):
+            normalized = normalize_usage_only(request_body, response,
+                                              f"LiteLLM route {provider}/ drops logprobs and cached-token counts")
+        else:
+            normalized = normalize_openai(request_body, response)
         latency = None
         if start_time is not None and end_time is not None:
             try:
                 latency = round((end_time - start_time).total_seconds(), 3)
             except AttributeError:
                 latency = round(float(end_time) - float(start_time), 3)
-        log_llm_call(self.log, caller=self.caller, provider=provider, model=kwargs.get("model") or slo.get("model"),
-                     api_base=api_base, endpoint=None, messages=_plain(kwargs.get("messages") or slo.get("messages")),
-                     params=_plain(slo.get("model_parameters") or kwargs.get("optional_params") or {}),
-                     response=response, usage=usage, latency_s=latency,
-                     request_body=request_body, error=error, parent_id=PARENT_SPAN.get(), step=STEP.get(), litellm_call_id=call_id,
-                     cloud_call=not is_local(api_base, provider))
+        record_llm_call(self.log, caller=self.caller, transport=f"litellm/{provider}", endpoint=None,
+                        api_base=api_base, model=kwargs.get("model") or slo.get("model"), request=request_body,
+                        response=response, normalized=normalized, latency_s=latency, error=error,
+                        parent_id=PARENT_SPAN.get(), step=STEP.get(), litellm_call_id=call_id,
+                        cloud_call=not is_local(api_base, provider))
 
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
         self._emit(kwargs, response_obj, start_time, end_time, failed=False)

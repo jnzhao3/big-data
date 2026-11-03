@@ -1,0 +1,140 @@
+"""Translate raw request/response payloads of each transport into the normalized llm_call fields.
+
+Pure functions, so normalization can be re-run on stored raw payloads (`hbench llm rederive`) whenever the
+schema grows. Every transport fills the same keys; what a transport cannot provide is listed in `unavailable`
+with the reason, so analyses can tell "missing" from "zero".
+
+Token logprobs are stored as [token, logprob, [[candidate, logprob], ...]] per generated token; the candidate
+list is the server's top-k and normally includes the chosen token itself.
+"""
+
+from __future__ import annotations
+
+# Parameters that change what the model generates. Logprob settings are excluded: they change the
+# response payload, not the generation, so they stay out of input_sha256.
+GENERATION_KEYS = ("temperature", "top_p", "top_k", "min_p", "seed", "max_tokens", "stop", "format", "num_ctx",
+                   "think", "repeat_penalty", "tools")
+COLD_LOAD_MS = 500.0  # a native call whose load_duration exceeds this loaded the model itself
+
+
+def path_class(prompt_tokens, cached_tokens, load_ms=None) -> str:
+    """How the engine computed the prompt: cold_full (model loaded during the call), full (no reuse),
+    partial (prefix reused, several tokens recomputed), single_token (only the last token recomputed,
+    e.g. an identical resend), or unknown. The E1 pilot found single_token paths shift logprobs relative
+    to batched paths, so this is a covariate for every analysis of run-to-run differences."""
+    if prompt_tokens is None or cached_tokens is None:
+        return "unknown"
+    if cached_tokens <= 0:
+        return "cold_full" if load_ms is not None and load_ms >= COLD_LOAD_MS else "full"
+    return "single_token" if prompt_tokens - cached_tokens <= 1 else "partial"
+
+
+def _tokens(entries) -> list | None:
+    if entries is None:
+        return None
+    out = []
+    for e in entries:
+        top = [[t.get("token"), t.get("logprob")] for t in (e.get("top_logprobs") or [])]
+        out.append([e.get("token"), e.get("logprob"), top])
+    return out
+
+
+def _tool_calls(calls):
+    if not calls:
+        return None
+    out = []
+    for c in calls:
+        fn = c.get("function", c)
+        out.append({"name": fn.get("name"), "arguments": fn.get("arguments")})
+    return out
+
+
+def decoding_native(request: dict) -> dict:
+    o = request.get("options") or {}
+    return {"temperature": o.get("temperature"), "top_p": o.get("top_p"), "top_k": o.get("top_k"),
+            "min_p": o.get("min_p"), "seed": o.get("seed"), "max_tokens": o.get("num_predict"), "stop": o.get("stop"),
+            "format": request.get("format"), "num_ctx": o.get("num_ctx"), "think": request.get("think"),
+            "repeat_penalty": o.get("repeat_penalty"), "tools": bool(request.get("tools")) or None,
+            "logprobs": request.get("logprobs"), "top_logprobs": request.get("top_logprobs")}
+
+
+def decoding_openai(request: dict) -> dict:
+    rf = request.get("response_format") or {}
+    return {"temperature": request.get("temperature"), "top_p": request.get("top_p"), "top_k": request.get("top_k"),
+            "min_p": None, "seed": request.get("seed"),
+            "max_tokens": request.get("max_tokens", request.get("max_completion_tokens")), "stop": request.get("stop"),
+            "format": "json" if rf.get("type") == "json_object" else (rf or None), "num_ctx": None, "think": None,
+            "repeat_penalty": None, "tools": bool(request.get("tools")) or None,
+            "logprobs": request.get("logprobs"), "top_logprobs": request.get("top_logprobs")}
+
+
+def normalize_native(request: dict, response: dict | None) -> dict:
+    """Ollama /api/chat."""
+    unavailable = {}
+    if response is None:
+        return {"decoding": decoding_native(request), "engine": None, "output": None, "token_logprobs": None,
+                "unavailable": {"response": "request failed"}}
+    msg = response.get("message") or {}
+    prompt, cached = response.get("prompt_eval_count"), response.get("prompt_eval_cached_count")
+    if cached is None:
+        unavailable["cached_tokens"] = "server did not report prompt_eval_cached_count"
+    load_ms = response["load_duration"] / 1e6 if response.get("load_duration") is not None else None
+    ms = lambda k: None if response.get(k) is None else response[k] / 1e6  # noqa: E731
+    tokens = _tokens(response.get("logprobs"))
+    if tokens is None:
+        unavailable["token_logprobs"] = "not requested" if not request.get("logprobs") else "not returned"
+    return {"decoding": decoding_native(request),
+            "engine": {"prompt_tokens": prompt, "cached_tokens": cached,
+                       "computed_tokens": None if prompt is None or cached is None else prompt - cached,
+                       "load_ms": load_ms, "path_class": path_class(prompt, cached, load_ms),
+                       "prompt_eval_ms": ms("prompt_eval_duration"), "eval_ms": ms("eval_duration"),
+                       "total_ms": ms("total_duration")},
+            "output": {"text": msg.get("content"), "tool_calls": _tool_calls(msg.get("tool_calls")),
+                       "thinking": msg.get("thinking"), "finish_reason": response.get("done_reason"),
+                       "n_tokens": response.get("eval_count")},
+            "token_logprobs": tokens, "unavailable": unavailable}
+
+
+def normalize_openai(request: dict, response: dict | None) -> dict:
+    """OpenAI-compatible chat completions (Ollama /v1, or LiteLLM's openai/ route)."""
+    unavailable = {"num_ctx": "not settable on /v1; see the engine snapshot", "load_ms": "not reported on /v1"}
+    if response is None:
+        return {"decoding": decoding_openai(request), "engine": None, "output": None, "token_logprobs": None,
+                "unavailable": {"response": "request failed"}}
+    choice = (response.get("choices") or [{}])[0]
+    msg = choice.get("message") or {}
+    usage = response.get("usage") or {}
+    prompt = usage.get("prompt_tokens")
+    cached = (usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+    if cached is None:
+        unavailable["cached_tokens"] = "usage.prompt_tokens_details.cached_tokens missing"
+    lp = choice.get("logprobs")
+    tokens = _tokens(lp.get("content")) if isinstance(lp, dict) else None
+    if tokens is None:
+        unavailable["token_logprobs"] = "not requested" if not request.get("logprobs") else "not returned"
+    return {"decoding": decoding_openai(request),
+            "engine": {"prompt_tokens": prompt, "cached_tokens": cached,
+                       "computed_tokens": None if prompt is None or cached is None else prompt - cached,
+                       "load_ms": None, "path_class": path_class(prompt, cached, None),
+                       "prompt_eval_ms": None, "eval_ms": None, "total_ms": None},
+            "output": {"text": msg.get("content"), "tool_calls": _tool_calls(msg.get("tool_calls")), "thinking": None,
+                       "finish_reason": choice.get("finish_reason"), "n_tokens": usage.get("completion_tokens")},
+            "token_logprobs": tokens, "unavailable": unavailable}
+
+
+def normalize_usage_only(request: dict, response: dict | None, reason: str) -> dict:
+    """Routes that expose only text and token counts (e.g. LiteLLM's ollama_chat/)."""
+    out = normalize_openai(request or {}, response)
+    out["unavailable"].update({"token_logprobs": reason, "cached_tokens": reason})
+    if out["engine"]:
+        out["engine"].update(cached_tokens=None, computed_tokens=None, path_class="unknown")
+    out["token_logprobs"] = None
+    return out
+
+
+NORMALIZERS = {"ollama": normalize_native, "openai_v1": normalize_openai}
+
+
+def generation_key(model: str, messages, decoding: dict) -> dict:
+    """The part of a request that determines generation (input_sha256 is its hash)."""
+    return {"model": model, "messages": messages or [], "decoding": {k: decoding.get(k) for k in GENERATION_KEYS}}

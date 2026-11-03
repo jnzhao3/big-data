@@ -27,7 +27,29 @@ If the environment already exists, add `hbench` without rebuilding by running th
 ~/venvs/harmonize/bin/python -m pip install --no-deps --no-build-isolation -e .
 ```
 
-`hbench` is the only package outside the lock, and the scripts still work without it, because they fall back to the repo copy.
+`hbench` is the only package outside the lock. Experiment scripts always import the `hbench` of their own checkout, so the code that runs matches the commit recorded in the run header.
+
+## Inference engine
+
+The Python lock does not cover Ollama, yet the engine changes outputs. `env/engine-lock.json` pins:
+- the Ollama version (0.40.0);
+- the digests and chat templates of the qwen models;
+- the server configuration (one parallel slot, flash attention, q8_0 KV cache, 8 GiB prompt cache);
+- the runner's invariant flags.
+
+Run Ollama as the Homebrew service: `brew install ollama`, then `brew services start ollama`. Its service definition does two things the lock relies on:
+- it sets `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`;
+- it writes the server log to `/opt/homebrew/var/log/ollama.log`, which the engine snapshot and audit read. If your log is elsewhere, set `HBENCH_OLLAMA_LOG`.
+
+If you start Ollama another way (the desktop app, or a plain `ollama serve`), these two settings take Ollama's own defaults. `python -m hbench engine check` then reports the difference, or that it could not check because it found no server log.
+
+Every run header compares the live engine with the lock. To check by hand:
+
+```bash
+python -m hbench engine check --models qwen2.5:14b
+```
+
+Keep Homebrew from upgrading Ollama silently with `brew pin ollama`. Update the lock only on purpose, with `python -m hbench engine lock --write --force`.
 
 ## Rules
 

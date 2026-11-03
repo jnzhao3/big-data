@@ -42,6 +42,11 @@ def score_vm(records, data: Data, study, mode: str = "oracle", age_tol_days: flo
     return df, s
 
 
+def _evidence_cols(r) -> dict:
+    ev = (r or {}).get("evidence") or {}
+    return {"evidence_span": ev.get("span_id"), "margin": ev.get("margin"), "p_flip": ev.get("p_flip")}
+
+
 def classify_age_error(pred: Decimal, gold: Decimal) -> str:
     if gold == 0:
         return "wrong_number"
@@ -86,7 +91,7 @@ def score_vm_core(recs, items: pd.DataFrame, permissible, age_tol_days: float = 
         row = dict(item_id=it.item_id, study=getattr(it, "study", ""), category=it.category,
                    source_attribute=it.source_attribute, target_attribute=it.target_attribute, key=it.key,
                    gold="|".join(sorted(g)), pred="NONE" if pred is NONE else pred, attempted=attempted,
-                   age_exact=None)
+                   age_exact=None, **_evidence_cols(r))
         lenient = False
         if not g:
             correct = pred is NONE

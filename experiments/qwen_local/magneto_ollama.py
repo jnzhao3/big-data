@@ -1,36 +1,42 @@
 """Run Magneto (VIDA-NYU) on one GDC study with its LLM reranker pointed at local Ollama via LiteLLM.
 Scores the same matches with hbench against GDC-SM (259 pairs, n:m) and the older GDC_new groundtruth.csv.
 
-Usage (from repo root, shared env from env/): ~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py --llm ollama_chat/qwen2.5:14b
-       [--study clark] [--no-llm] [--temperature 0] [--seed S] [--run N] [--data-root <datasets>] [--out-dir <results>]
+Usage (from repo root, shared env from env/): ~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py
+       [--llm openai/qwen2.5:14b] [--study clark] [--no-llm] [--temperature 0] [--seed S] [--run N]
+       [--top-logprobs 5] [--data-root <datasets>] [--out-dir <results>]
 
-Each run writes <out-dir>/raw/<run_id>/: the run log (every reranker LLM call), predictions.jsonl with the
-full ranking and scores for every column, and the hbench scores. Nothing is overwritten.
+The reranker goes through LiteLLM's openai/ route to Ollama's /v1 by default: that route keeps logprobs and the
+cached-token count (ollama_chat/ rejects logprobs). Runs before E0 v2 used ollama_chat/.
+Each run writes <out-dir>/raw/<run_id>/: the run log (every reranker call with raw request/response),
+predictions.jsonl with the full ranking for every column, each column linked to its reranker call with the
+LLM's score gap, the hbench scores, and engine_audit.json. Nothing is overwritten.
 """
-import argparse, sys, time, warnings
+import argparse, json, re, sys, time, warnings
 from pathlib import Path
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-try:
-    import hbench  # noqa: F401
-except ImportError:  # hbench not installed in this env: use the repo copy
-    sys.path.insert(0, str(HERE.parents[1]))
+# Always use the hbench of this checkout, never another copy installed in the environment: the library version
+# must match the commit recorded in the run header.
+sys.path.insert(0, str(HERE.parents[1]))
 from hbench.adapters.magneto import from_magneto_matches
 from hbench.data import Data, default_root
+from hbench.design import make_condition
 from hbench.predictions import write_predictions
-from hbench.runlog import RunLog
-from hbench.runlog.header import collect_run_header
+from hbench.runlog.session import start_run
+from hbench.runlog.writer import BlobStore, read_events
 from hbench.score_sm import score_sm
 from magneto import Magneto
 
+CALLER = "method:magneto_reranker"
 ap = argparse.ArgumentParser()
-ap.add_argument("--llm", default="ollama_chat/qwen2.5:14b")
+ap.add_argument("--llm", default="openai/qwen2.5:14b")
 ap.add_argument("--study", default="clark")
 ap.add_argument("--no-llm", action="store_true")
 ap.add_argument("--temperature", type=float, default=0.0)
 ap.add_argument("--seed", type=int, default=None)
-ap.add_argument("--run", type=int, default=1, help="repeat index, recorded in the run header")
+ap.add_argument("--top-logprobs", type=int, default=5, help="openai/ route only; 0 = do not request")
+ap.add_argument("--run", type=int, default=1, help="repeat index, recorded in the condition")
 ap.add_argument("--data-root", default=None, help="benchmark data root (default: $HBENCH_DATA or <repo>/datasets)")
 ap.add_argument("--out-dir", default=HERE / "results")
 args = ap.parse_args()
@@ -40,26 +46,35 @@ d = data.source_path(args.study).parent
 src = pd.read_csv(d / "source.csv", low_memory=False)
 tgt = pd.read_csv(d / "target.csv", low_memory=False)
 
+route, model = (args.llm.split("/", 1) + [None])[:2] if "/" in args.llm else ("ollama_chat", args.llm)
 kw = dict(embedding_model="mpnet", topk=20)
-llm_kwargs = {"api_base": "http://localhost:11434", "temperature": args.temperature}
+llm_kwargs = {"temperature": args.temperature}
+if route == "openai":
+    llm_kwargs.update(api_base="http://localhost:11434/v1", api_key="ollama")
+    if args.top_logprobs:
+        llm_kwargs.update(logprobs=True, top_logprobs=args.top_logprobs)
+else:
+    llm_kwargs["api_base"] = "http://localhost:11434"
 if args.seed is not None:
     llm_kwargs["seed"] = args.seed
 if not args.no_llm:
     kw.update(use_gpt_reranker=True, llm_model=args.llm, llm_model_kwargs=llm_kwargs)
 label = "no-llm" if args.no_llm else args.llm
 
-log = RunLog.create(Path(args.out_dir) / "raw", "qwen_local",
-                    f"magneto_{'nollm' if args.no_llm else args.llm.split('/')[-1]}_run{args.run}", args.study)
-log.emit("run_header", **collect_run_header(
-    "qwen_local/magneto", condition=dict(embedding_model="mpnet", topk=20, reranker=None if args.no_llm else args.llm,
-                                         temperature=None if args.no_llm else args.temperature, seed=args.seed,
-                                         run=args.run),
-    task=dict(study=args.study, kind="sm"), llm=None if args.no_llm else dict(model=args.llm, **llm_kwargs),
-    data=data, ollama_models=[] if args.no_llm else [args.llm]))
+condition = make_condition(
+    method={"name": "magneto", "embedding_model": "mpnet", "topk": 20, "reranker": not args.no_llm},
+    model={"name": "none" if args.no_llm else model},
+    decoding={"temperature": None if args.no_llm else args.temperature, "seed": args.seed},
+    engine={"transport": "none" if args.no_llm else f"litellm/{route}", "protocol": "natural",
+            "top_logprobs": args.top_logprobs if route == "openai" and not args.no_llm else None},
+    data={"study": args.study}, replicate=args.run)
+log = start_run(Path(args.out_dir) / "raw", "qwen_local", condition, task=dict(study=args.study, kind="sm"),
+                models=[] if args.no_llm else [model], data=data,
+                llm=None if args.no_llm else dict(model=args.llm, **{k: v for k, v in llm_kwargs.items() if k != "api_key"}))
 cb = None
 if not args.no_llm:
     from hbench.runlog import litellm_cb
-    cb = litellm_cb.install(log, caller="method:magneto_reranker")
+    cb = litellm_cb.install(log, caller=CALLER)
 
 t = time.time()
 try:
@@ -72,7 +87,36 @@ finally:
         print("warning: some reranker calls were not logged", file=sys.stderr)
 secs = time.time() - t
 
+
+def reranker_evidence() -> dict:
+    """Source column -> evidence from its (last successful) reranker call: the call's span and the gap between
+    the LLM's top two scores. The column is read from the prompt's last "Candidate Column: Column: <name>,"."""
+    blobs, out = BlobStore(log.run_dir.parent / "_blobs"), {}
+    for e in read_events(log.run_dir):
+        if e["type"] != "llm_call" or e.get("caller") != CALLER or e.get("error") or not e.get("messages"):
+            continue
+        prompt = blobs.get(e["messages"][-1]).get("content") or ""
+        cols = re.findall(r"Candidate Column: Column: (.*?), Sample values:", prompt)
+        if not cols:
+            continue
+        gap = None
+        try:
+            scores = sorted((float(x.get("score", 0)) for x in json.loads((e.get("output") or {}).get("text") or "")
+                             if isinstance(x, dict)), reverse=True)
+            gap = scores[0] - scores[1] if len(scores) > 1 else None
+        except (ValueError, TypeError):
+            pass
+        out[cols[-1]] = {"span_id": e["span_id"], "llm_score_gap": gap, "margin": None,
+                         "margin_note": "reranker outputs a score list; logprob margin not defined"}
+    return out
+
+
 records = from_magneto_matches(matches, log.run_id, args.study, source_columns=list(src.columns))
+if not args.no_llm:
+    ev = reranker_evidence()
+    for r in records:
+        if r["source_column"] in ev:
+            r["evidence"] = ev[r["source_column"]]
 write_predictions(log.run_dir / "predictions.jsonl", records)
 log.emit("prediction_batch", path="predictions.jsonl", n=len(records), parse_failures=len(llm_warns))
 for name, variant in [("GDC-SM", "gdc-sm"), ("old GT", "gdc-new-raw")]:

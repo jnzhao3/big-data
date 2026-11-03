@@ -68,7 +68,7 @@ def score_sm_core(recs, source_columns, gold, target_names, study: str = "", ks=
                    annotated=g is not None, gold="|".join(sorted(g)) if g else "",
                    pred="NONE" if top1 is NONE else top1, n_targets=len(targets), status=status,
                    output_type=None if r is None else r.get("output_type"),
-                   hallucinated=top1 is not NONE and top1 not in valid)
+                   hallucinated=top1 is not NONE and top1 not in valid, **_evidence_cols(r))
         if g is not None:
             hits = [i for i, t in enumerate(targets) if t in g]
             row["correct"] = top1 is not NONE and top1 in g
@@ -137,6 +137,12 @@ def score_sm_core(recs, source_columns, gold, target_names, study: str = "", ks=
             s[f"set_{name}_P"], s[f"set_{name}_R"] = float(p), float(rec)
             s[f"set_{name}_F1"] = float(2 * p * rec / (p + rec)) if p + rec else 0.0
     return df, s
+
+
+def _evidence_cols(r) -> dict:
+    """Decision evidence carried into item tables: the deciding call and how close the decision was."""
+    ev = (r or {}).get("evidence") or {}
+    return {"evidence_span": ev.get("span_id"), "margin": ev.get("margin"), "p_flip": ev.get("p_flip")}
 
 
 def vida_pair_mrr(ranked: dict[str, list[str]], gold_pairs: list[tuple[str, str]]) -> float:

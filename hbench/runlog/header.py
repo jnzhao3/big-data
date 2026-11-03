@@ -87,12 +87,22 @@ def dataset_info(data: Data, verify: bool = True, mpath: Path = MANIFEST_PATH) -
 def collect_run_header(exp: str, condition: dict, task: dict, llm: dict | None = None, prompts: dict | None = None,
                        data: Data | None = None, ollama_models=(), ollama_base: str = ollama.DEFAULT_BASE,
                        verify_data: bool = True, **extra) -> dict:
-    """Fields of the run_header event. prompts maps a name to the template text; only hashes are kept."""
+    """Fields of the run_header event. prompts maps a name to the template text; only hashes are kept.
+    condition should come from hbench.design.make_condition; its condition_id is recorded alongside. With
+    ollama_models, the engine snapshot (API state, server config, runner flags, server-log offset) and its
+    drift against env/engine-lock.json are recorded too."""
+    from ..design import NAMESPACES, condition_id
+    from ..engine import check as engine_check
+    from ..engine import engine_snapshot
+
     data = data or Data()
-    return {"exp": exp, "condition": condition, "task": task, "llm": llm or {},
+    structured = isinstance(condition, dict) and all(isinstance(condition.get(ns), dict) for ns in NAMESPACES)
+    engine = engine_snapshot(ollama_models, ollama_base) if ollama_models else None
+    return {"exp": exp, "condition": condition, "condition_id": condition_id(condition) if structured else None,
+            "task": task, "llm": llm or {},
             "prompts": {k: hashlib.sha256(v.encode()).hexdigest() for k, v in (prompts or {}).items()},
             "code": code_info(), "python": python_info(), "packages": package_info(), "env": env_info(),
-            "ollama": ollama.server_state(ollama_models, ollama_base) if ollama_models else None,
+            "engine": engine, "engine_drift": engine_check(engine) if engine else None,
             "dataset": dataset_info(data, verify_data),
             "hbench": {"version": __version__, "scoring_version": SCORING_VERSION},
             "host": {"hostname": socket.gethostname(), "platform": platform.platform(), "machine": platform.machine(),

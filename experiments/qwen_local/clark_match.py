@@ -3,12 +3,13 @@ to pick the matching target column from a shortlist. Scored with hbench against 
 older GDC_new groundtruth.csv.
 
 Usage: python -I clark_match.py --model qwen2.5:14b --run 1 [--mode shortlist|full] [--study clark] [--k 20]
-       [--think] [--temperature T] [--seed S] [--gt gdc-sm|old] [--data-root <datasets>] [--out-dir <results>]
+       [--think] [--temperature T] [--seed S] [--transport ollama|openai_v1] [--num-ctx 32768] [--top-logprobs 5]
+       [--engine-protocol natural|cold] [--gt gdc-sm|old] [--data-root <datasets>] [--out-dir <results>]
        [--rescore <dir with an earlier run's CSV>]   # reuse its predictions, no model calls
 
 Outputs in --out-dir (never overwritten): <tag>.csv and a line in summary.jsonl, as before. Live runs also
-write raw/<run_id>/ with the run log (every Ollama call), predictions.jsonl (with the shown candidates) and
-the hbench scores.
+write raw/<run_id>/: the run log (every call with raw request/response and token logprobs), predictions.jsonl
+(with the shown candidates and each decision's margin), the hbench scores, and engine_audit.json.
 """
 import argparse, json, re, sys, time
 from difflib import SequenceMatcher
@@ -16,18 +17,20 @@ from pathlib import Path
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-try:
-    import hbench  # noqa: F401
-except ImportError:  # hbench not installed in this env: use the repo copy
-    sys.path.insert(0, str(HERE.parents[1]))
+# Always use the hbench of this checkout, never another copy installed in the environment: the library version
+# must match the commit recorded in the run header.
+sys.path.insert(0, str(HERE.parents[1]))
 from hbench.data import Data, default_root
+from hbench.decisions import evidence
+from hbench.design import make_condition
+from hbench.llm import LLMClient
 from hbench.predictions import sm_record, write_predictions
-from hbench.runlog import RunLog
-from hbench.runlog.header import collect_run_header
-from hbench.runlog.llm import ollama_chat
+from hbench.runlog.session import start_run
 from hbench.score_sm import score_sm
 
 GT_VARIANT = {"gdc-sm": "gdc-sm", "old": "gdc-new-raw"}
+CALLER = "method:clark_match"
+DECISION = {"type": "json_field", "field": "target"}  # stored with every call: the log says where the decision is
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", required=True)
 ap.add_argument("--data-root", default=None, help="benchmark data root (default: $HBENCH_DATA or <repo>/datasets)")
@@ -42,7 +45,11 @@ ap.add_argument("--think", action="store_true")
 ap.add_argument("--mode", choices=["shortlist", "full"], default="shortlist", help="full = all target names in prompt")
 ap.add_argument("--temperature", type=float, default=None, help="unset = model default")
 ap.add_argument("--seed", type=int, default=None, help="Ollama sampling seed (unset = random)")
-ap.add_argument("--num-ctx", type=int, default=16384)
+ap.add_argument("--num-ctx", type=int, default=32768, help="runs before E0 v2 used 16384")
+ap.add_argument("--transport", choices=["ollama", "openai_v1"], default="ollama")
+ap.add_argument("--top-logprobs", type=int, default=5, help="0 = do not request logprobs")
+ap.add_argument("--engine-protocol", choices=["natural", "cold"], default="natural",
+                help="cold = unload the model before every call (full recompute, empty prompt cache)")
 args = ap.parse_args()
 
 data = Data(args.data_root) if args.data_root else Data(default_root())
@@ -100,27 +107,28 @@ Candidate target columns (name: sample values):
 Pick the ONE candidate that represents the same attribute as the source column. If none fits, answer "NONE".
 Respond with JSON only: {{"target": "<exact candidate name or NONE>", "reason": "<one short sentence>"}}"""
 
-options = {"num_ctx": args.num_ctx}
-if args.temperature is not None: options["temperature"] = args.temperature
-if args.seed is not None: options["seed"] = args.seed
-
 tag = f"{args.study}_{args.mode}{args.k if args.mode == 'shortlist' else ''}_{args.model.replace(':', '-').replace('/', '-')}{'_think' if args.think else ''}_run{args.run}"
 out = Path(args.out_dir); out.mkdir(parents=True, exist_ok=True)
 if (out / f"{tag}.csv").exists():
     sys.exit(f"{out / f'{tag}.csv'} exists; use another --run number or --out-dir")
-prior, log = None, None
+prior, log, client = None, None, None
 if args.rescore:
     prior = pd.read_csv(Path(args.rescore) / f"{tag}.csv", keep_default_na=False).set_index("source")
     run_id = tag
 else:
-    log = RunLog.create(out / "raw", "qwen_local", tag.split("_", 1)[1], args.study)
+    condition = make_condition(
+        method={"name": "clark_match", "mode": args.mode, "k": args.k if args.mode == "shortlist" else None},
+        model={"name": args.model},
+        decoding={"temperature": args.temperature, "seed": args.seed, "think": args.think, "format": "json"},
+        engine={"transport": args.transport, "num_ctx": args.num_ctx, "protocol": args.engine_protocol,
+                "top_logprobs": args.top_logprobs or None},
+        data={"study": args.study}, replicate=args.run)
+    log = start_run(out / "raw", "qwen_local", condition, task=dict(study=args.study, kind="sm"),
+                    models=[args.model], prompts={"full": FULL_PROMPT, "shortlist": PROMPT}, data=data, tag=tag)
     run_id = log.run_id
-    log.emit("run_header", **collect_run_header(
-        "qwen_local/clark_match", condition=dict(mode=args.mode, k=args.k if args.mode == "shortlist" else None,
-                                                 model=args.model, temperature=args.temperature, seed=args.seed,
-                                                 think=args.think, num_ctx=args.num_ctx, format="json", run=args.run),
-        task=dict(study=args.study, kind="sm"), llm=dict(model=args.model, endpoint="/api/chat", options=options),
-        prompts={"full": FULL_PROMPT, "shortlist": PROMPT}, data=data, ollama_models=[args.model], tag=tag))
+    client = LLMClient(log, args.model, transport=args.transport, num_ctx=args.num_ctx,
+                       top_logprobs=args.top_logprobs or None,
+                       decoding={"temperature": args.temperature, "seed": args.seed, "think": args.think})
 
 records, legacy, t0 = [], [], time.time()
 for i, col in enumerate(src.columns):
@@ -134,21 +142,25 @@ for i, col in enumerate(src.columns):
         else:
             cand_txt = "\n".join(f"- {c}: {samples(tgt[c], 4)}" for c in cands)
             prompt = PROMPT.format(col=col, vals=samples(src[col]), cands=cand_txt)
-        body = {"model": args.model, "messages": [{"role": "user", "content": prompt}], "format": "json",
-                "think": args.think, "options": options}
-        t = time.time()
-        raw = ollama_chat(body, log, "method:clark_match", step=i, timeout=600)["message"].get("content", "")
-        dt = time.time() - t
+        if args.engine_protocol == "cold":
+            client.unload()
+        res = client.chat([{"role": "user", "content": prompt}], caller=CALLER, step=i, format="json",
+                          decision=DECISION)
+        raw, dt = res.text or "", res.latency_s
+    emitted = None
     try:
-        obj = json.loads(raw); pred = str(obj.get("target", "")).strip(); reason = obj.get("reason", "")
+        obj = json.loads(raw); emitted = obj.get("target"); pred = str(obj.get("target", "")).strip(); reason = obj.get("reason", "")
         if pred.upper() == "NONE": pred = "NONE"
         status = "ok" if pred in cands or pred == "NONE" else ("hallucinated_in_target" if pred in tgt.columns else "hallucinated")
     except Exception:
         pred, reason, status = "", raw[:200], "invalid_json"
+    ev = None if prior is not None else evidence(res.span_id, res.token_logprobs, raw,
+                                                 emitted if isinstance(emitted, str) else None, json_key="target",
+                                                 temperature=args.temperature)
     records.append(sm_record(run_id, args.study, col, [] if pred in ("", "NONE") else [pred],
                              shown="*" if args.mode == "full" else cands,
                              status="invalid_output" if status == "invalid_json" else "ok",
-                             latency_s=round(dt, 1), reason=reason, legacy_status=status))
+                             latency_s=round(dt, 1), reason=reason, legacy_status=status, evidence=ev))
     legacy.append(dict(source=col, pred=pred, status=status, secs=round(dt, 1), reason=reason))
 
 items, s = score_sm(records, data, args.study, GT_VARIANT[args.gt])
@@ -179,5 +191,8 @@ if log is not None:
     log.emit("score", gt=s["gt"], summary=s)
     log.write_file(f"items.{GT_VARIANT[args.gt]}.csv", items.reset_index().to_csv(index=False))
     log.close(status="ok", total_secs=total_secs)
+    m = items[items.margin.notna()].margin if "margin" in items else pd.Series(dtype=float)
+    if len(m):
+        print(f"decision margins: min {m.min():.4f}, median {m.median():.4f}, below 0.05: {int((m < 0.05).sum())}")
 print(json.dumps(summary, ensure_ascii=False))
 with open(out / "summary.jsonl", "a") as f: f.write(json.dumps(summary, ensure_ascii=False) + "\n")

@@ -90,7 +90,38 @@ def stability_report(long: pd.DataFrame) -> dict:
             out[f"pass@{k}"] = float(c.map(lambda x: pass_at_k(n, int(x), k)).mean())
             out[f"pass^{k}"] = float(c.map(lambda x: pass_hat_k(n, int(x), k)).mean())
         out["fleiss_kappa_correct"] = fleiss_kappa([[int(x), n - int(x)] for x in c])
+    if "margin" in long and long["margin"].notna().any():
+        m = long.groupby("item_id")["margin"].min().dropna()
+        out["margin_quantiles"] = {q: float(m.quantile(q)) for q in (0.1, 0.25, 0.5)}
+        out["flips_by_margin"] = flips_by_margin(long)
     return out
+
+
+MARGIN_BINS = (0.0, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, float("inf"))
+
+
+def flips_by_margin(long: pd.DataFrame, bins=MARGIN_BINS) -> list[dict]:
+    """How often items changed across runs, by decision margin (each item's smallest margin over the runs,
+    i.e. the most fragile observation). This is the curve that links E1's noise floor to observed flips:
+    with path-induced logit shifts of size eps, items with margin < eps are the ones that can flip at T=0."""
+    if "margin" not in long or long["margin"].isna().all():
+        return []
+    per = long.groupby("item_id").agg(margin=("margin", "min"), n_preds=("pred", "nunique"))
+    per = per.dropna(subset=["margin"])
+    out = []
+    for lo, hi in zip(bins[:-1], bins[1:]):
+        sub = per[(per.margin >= lo) & (per.margin < hi)]
+        out.append({"margin_from": lo, "margin_to": hi, "n_items": len(sub), "n_changed": int((sub.n_preds > 1).sum()),
+                    "flip_rate": float((sub.n_preds > 1).mean()) if len(sub) else None})
+    return out
+
+
+def fragile_items(long: pd.DataFrame, eps: float) -> int:
+    """Items whose smallest observed margin is below eps (e.g. the path-induced shift measured in E1)."""
+    if "margin" not in long:
+        return 0
+    m = long.groupby("item_id")["margin"].min().dropna()
+    return int((m < eps).sum())
 
 
 def stability_classes(long: pd.DataFrame) -> pd.Series:

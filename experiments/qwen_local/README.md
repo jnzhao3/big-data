@@ -35,10 +35,23 @@ against both. The predictions are unchanged; only the scoring is new. Conclusion
    creates `~/venvs/harmonize`). Everything here, Magneto included, runs in it. Magneto comes from the
    `magneto-python` 0.2.0 package that bdi-kit installs, so no separate clone or venv is needed.
 
-Both scripts refuse to overwrite an existing `<tag>.csv`; use a new `--run` number or `--out-dir` for repeats.
-Every live run also writes `results/raw/<run_id>/`. That folder has the run header (git commit, package versions,
-Ollama model digest, data manifest), every LLM call (full request, response, token counts and timings),
-`predictions.jsonl` and the scores. The CSV and `summary.jsonl` keep their old format.
+`clark_match.py` refuses to overwrite an existing `<tag>.csv`; use a new `--run` number or `--out-dir` for repeats.
+Every live run of either script writes a new `results/raw/<run_id>/` (never overwritten), which holds:
+- the run header: git commit, package versions, engine snapshot and drift, data manifest;
+- every LLM call, with the raw request and response, token logprobs and cache reuse;
+- `predictions.jsonl`: each clark_match decision carries its margin, and each Magneto column links to its reranker call;
+- the scores;
+- `engine_audit.json`, which matches each call to the Ollama server log.
+
+The CSV and `summary.jsonl` keep their old format. Check a run with `python -m hbench log validate <run_dir>`.
+
+Defaults changed with E0 v2 (2026-11-02):
+- clark_match uses `--num-ctx 32768` (before: 16384) and requests `--top-logprobs 5`;
+- `--transport openai_v1` sends the same requests through `/v1`;
+- `--engine-protocol cold` unloads the model before every call;
+- Magneto's reranker goes through LiteLLM's `openai/` route (`--llm openai/qwen2.5:14b`), because `ollama_chat/` cannot return logprobs.
+
+Earlier results used the old settings.
 
 ```bash
 PY=~/venvs/harmonize/bin/python
@@ -53,14 +66,15 @@ $PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1 --rescore res
 Magneto (run from the repo root):
 
 ```bash
-~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py --llm ollama_chat/qwen2.5:14b
+~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py                  # reranker: openai/qwen2.5:14b
 ~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py --no-llm
 ```
 
 The results in `results/` were first produced in separate environments: a Python 3.11 env for `clark_match.py`, and a
 Magneto venv built from the GitHub clone with litellm 1.106.6 and transformers 5. On 2026-11-02, both Magneto
 runs were repeated in the shared environment. The no-LLM run and the qwen2.5:14b reranker run (T=0) gave the same
-predictions for every column as the saved results.
+predictions for every column as the saved results. The reranker run was repeated again through the new default
+`openai/` route, and again gave the same ranking for every column.
 
 ## 1. Speed (`results/bench_speed.txt`)
 
@@ -139,7 +153,8 @@ Caveat: one study and two runs only show that the setup is usable; these are not
 
 ## 4. Magneto + local Qwen (`results/gdc_sm/magneto_*.txt`; first runs in `results/magneto_*.txt`)
 
-- Config: `Magneto(use_gpt_reranker=True, llm_model="ollama_chat/qwen2.5:14b", llm_model_kwargs={"api_base": "http://localhost:11434", "temperature": 0})`.
+- Config of the runs below: `Magneto(use_gpt_reranker=True, llm_model="ollama_chat/qwen2.5:14b", llm_model_kwargs={"api_base": "http://localhost:11434", "temperature": 0})`.
+- The script now defaults to `llm_model="openai/qwen2.5:14b"` with `api_base` `http://localhost:11434/v1`, which also returns logprobs. A rerun that way gave the same ranking for every column (GDC-SM top-1 9/14, MRR 0.708; 396s).
 - Pitfall: the latest `valentine==1.0.1` fails with `'MatcherResults' object has no attribute 'pop'`; use `valentine==0.5.0`.
 - clark results:
 

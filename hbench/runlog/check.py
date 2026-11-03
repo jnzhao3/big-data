@@ -23,9 +23,14 @@ def _blob_refs(x):
 
 def check_run(run_dir: str | Path) -> dict:
     """{"problems": [...], "counts": {...}}. No problems means: every process starts with a run_header, sequence
-    numbers are contiguous, every blob exists, the driver ended with run_end, and no call left the machine."""
+    numbers are contiguous, every blob exists, the driver ended with run_end, no call left the machine, the
+    engine matched env/engine-lock.json, and (when the run was audited) the server log shows no foreign
+    requests, no unlogged calls, no truncation and the requested temperatures."""
     run_dir = Path(run_dir)
     events = read_events(run_dir)
+    if not events:
+        return {"run_dir": str(run_dir), "problems": ["no events found (not a run directory?)"], "counts": {},
+                "failed_llm_calls": 0, "processes": [], "audited": False}
     blobs = BlobStore(run_dir.parent / "_blobs")
     problems, counts = [], {}
     by_proc: dict[str, list] = {}
@@ -50,5 +55,13 @@ def check_run(run_dir: str | Path) -> dict:
     if cloud:
         problems.append(f"{len(cloud)} llm_call(s) went to a non-local api_base: {cloud[:5]}")
     failed = sum(1 for e in events if e["type"] == "llm_call" and e.get("error"))
+    header = next((e for e in events if e["type"] == "run_header" and e["proc"] == "driver"), {})
+    if header.get("engine_drift"):  # differences from the lock, or locked settings that could not be checked
+        problems.append("engine vs env/engine-lock.json: " + "; ".join(header["engine_drift"]))
+    end = next((e for e in reversed(events) if e["type"] == "run_end" and e["proc"] == "driver"), {})
+    audit = end.get("engine_audit")
+    if audit:
+        from ..engine.audit import audit_problems
+        problems += audit_problems(audit)
     return {"run_dir": str(run_dir), "problems": problems, "counts": counts, "failed_llm_calls": failed,
-            "processes": sorted(by_proc)}
+            "processes": sorted(by_proc), "audited": bool(audit) and "unavailable" not in (audit or {})}

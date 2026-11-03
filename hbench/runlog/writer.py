@@ -167,9 +167,19 @@ class RunLog:
             f.write(text)
         return p
 
+    def add_close_hook(self, fn) -> None:
+        """fn(log) runs at close, before run_end is written; a dict it returns is merged into run_end. Used for
+        the engine audit and releasing the Ollama lease. Hook errors are recorded, never raised."""
+        self._close_hooks = getattr(self, "_close_hooks", []) + [fn]
+
     def close(self, status: str = "ok", **summary) -> None:
         if self.closed:
             return
+        for fn in getattr(self, "_close_hooks", []):
+            try:
+                summary.update(fn(self) or {})
+            except Exception as e:  # noqa: BLE001 - closing must not lose the run_end event
+                summary.setdefault("close_hook_errors", []).append(f"{getattr(fn, '__name__', fn)}: {type(e).__name__}: {e}")
         self.emit("run_end", status=status, event_counts=dict(self.counts), **summary)
         self._f.close()
         self.closed = True
