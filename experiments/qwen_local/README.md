@@ -18,33 +18,36 @@ against both. The predictions are unchanged; only the scoring is new. Conclusion
 |---|---|
 | `bench_speed.sh` | Load time and generation speed per model |
 | `test_openai_tools.py` | Checks the OpenAI-compatible endpoint (`localhost:11434/v1`) and tool calling |
-| `clark_match.py` | Column matching test: for each source column, the model picks one target column from the candidates. Scored against GDC-SM (`--gt gdc-sm`, default) or the old groundtruth (`--gt old`); `--rescore` rescores an earlier run's predictions without calling the model |
+| `clark_match.py` | Column matching test: for each source column, the model picks one target column from the candidates. Scored with `hbench` against GDC-SM (`--gt gdc-sm`, default) or the old groundtruth (`--gt old`); `--rescore` rescores an earlier run's predictions without calling the model |
 | `run_all.sh` | 2 models x 2 candidate modes x 2 runs |
-| `magneto_ollama.py` | Runs Magneto (VIDA-NYU) with its LLM reranker pointed at local Ollama; scores against both ground truths |
+| `magneto_ollama.py` | Runs Magneto (VIDA-NYU) with its LLM reranker pointed at local Ollama; scored with `hbench` against both ground truths |
 | `results/` | Original runs, scored against the old groundtruth when they were made |
 | `results/gdc_sm/` | The same clark predictions rescored against GDC-SM, plus Magneto reruns scored against both ground truths |
+| `results/raw/` | Not in git. One folder per new run: the `hbench` run log, `predictions.jsonl` and scores (see `hbench/README.md`) |
 
 ## Setup
 
 1. Install Ollama and pull the model: `ollama pull qwen2.5:14b` (for the 27B comparison: `qwen3.8:27b-q4_K_M`, 17GB).
-2. Data is not in git. Download `GDC_new` from
-   [VIDA-NYU/data-harmonization-benchmark](https://github.com/VIDA-NYU/data-harmonization-benchmark)
-   and extract it to `datasets/GDC_new/` at the repo root (ignored by `.gitignore`),
-   or point `--data-dir` / the `GDC_DATA_DIR` environment variable somewhere else.
-   GDC-SM ground truth (Zenodo 14963588) goes in `datasets/gdc_sm/extracted/data/ground-truth/`
-   (override with `--gt-dir` / `GDC_SM_GT_DIR`); see `datasets/README.md`.
+2. Data is not in git. Follow `datasets/README.md` to put GDC_new, GDC-SM and GDC-VM under `datasets/` at the repo
+   root, or pass `--data-root` / set `HBENCH_DATA` to another folder with the same layout.
+   `python -m hbench manifest verify` checks that your copy matches `datasets/MANIFEST.json`.
 3. Python environment: use the shared environment in `env/` at the repo root (`bash env/setup_env.sh`, which
    creates `~/venvs/harmonize`). Everything here, Magneto included, runs in it. Magneto comes from the
    `magneto-python` 0.2.0 package that bdi-kit installs, so no separate clone or venv is needed.
+
+Both scripts refuse to overwrite an existing `<tag>.csv`; use a new `--run` number or `--out-dir` for repeats.
+Every live run also writes `results/raw/<run_id>/`. That folder has the run header (git commit, package versions,
+Ollama model digest, data manifest), every LLM call (full request, response, token counts and timings),
+`predictions.jsonl` and the scores. The CSV and `summary.jsonl` keep their old format.
 
 ```bash
 PY=~/venvs/harmonize/bin/python
 ./bench_speed.sh qwen2.5:14b qwen3.8:27b-q4_K_M
 $PY test_openai_tools.py qwen2.5:14b
-$PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1
-PYTHON=$PY ./run_all.sh               # all 8 configs, about 20 minutes
-# rescore saved predictions against GDC-SM (no model calls)
-$PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1 --rescore results --out-dir results/gdc_sm
+$PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 3 --temperature 0 --seed 1
+PYTHON=$PY ./run_all.sh --out-dir results/repeat2   # all 8 configs, about 20 minutes
+# rescore saved predictions (no model calls) into a new folder
+$PY -I clark_match.py --model qwen2.5:14b --mode shortlist --run 1 --rescore results --out-dir results/rescored
 ```
 
 Magneto (run from the repo root):

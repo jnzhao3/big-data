@@ -1,5 +1,6 @@
 datasets/*
 !datasets/README.md
+!datasets/MANIFEST.json
 
 # third-party code cloned locally (e.g. magneto-matcher)
 third_party/

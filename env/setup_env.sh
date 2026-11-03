@@ -18,6 +18,8 @@ esac
 "$PY" -m venv "$VENV"
 "$VENV/bin/python" -m pip install --require-virtualenv "pip==26.3"
 "$VENV/bin/python" -m pip install --require-virtualenv -r "$HERE/requirements-lock.txt"
+# hbench (this repo's scorer and run logger), editable so it tracks the checkout; uses only installed packages
+"$VENV/bin/python" -m pip install --require-virtualenv --no-deps --no-build-isolation -e "$(cd "$HERE/.." && pwd)"
 "$VENV/bin/python" -m pip check
 
 "$VENV/bin/python" - <<'EOF'

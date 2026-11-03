@@ -1,25 +1,38 @@
 """Small harmonization test: for each source column of a GDC study, ask a local Qwen (Ollama)
-to pick the matching target column from a shortlist. Scores against GDC-SM (default) or the
+to pick the matching target column from a shortlist. Scored with hbench against GDC-SM (default) or the
 older GDC_new groundtruth.csv.
 
 Usage: python -I clark_match.py --model qwen2.5:14b --run 1 [--mode shortlist|full] [--study clark] [--k 20]
-       [--think] [--gt gdc-sm|old] [--data-dir <GDC_new>] [--gt-dir <GDC-SM ground-truth>] [--out-dir <results>]
+       [--think] [--temperature T] [--seed S] [--gt gdc-sm|old] [--data-root <datasets>] [--out-dir <results>]
        [--rescore <dir with an earlier run's CSV>]   # reuse its predictions, no model calls
+
+Outputs in --out-dir (never overwritten): <tag>.csv and a line in summary.jsonl, as before. Live runs also
+write raw/<run_id>/ with the run log (every Ollama call), predictions.jsonl (with the shown candidates) and
+the hbench scores.
 """
-import argparse, json, os, re, time, urllib.request
+import argparse, json, re, sys, time
 from difflib import SequenceMatcher
 from pathlib import Path
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
+try:
+    import hbench  # noqa: F401
+except ImportError:  # hbench not installed in this env: use the repo copy
+    sys.path.insert(0, str(HERE.parents[1]))
+from hbench.data import Data, default_root
+from hbench.predictions import sm_record, write_predictions
+from hbench.runlog import RunLog
+from hbench.runlog.header import collect_run_header
+from hbench.runlog.llm import ollama_chat
+from hbench.score_sm import score_sm
+
+GT_VARIANT = {"gdc-sm": "gdc-sm", "old": "gdc-new-raw"}
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", required=True)
-ap.add_argument("--data-dir", default=os.environ.get("GDC_DATA_DIR", HERE.parents[1] / "datasets" / "GDC_new"),
-                help="folder holding the GDC_new studies (default: $GDC_DATA_DIR or <repo>/datasets/GDC_new)")
+ap.add_argument("--data-root", default=None, help="benchmark data root (default: $HBENCH_DATA or <repo>/datasets)")
 ap.add_argument("--gt", choices=["gdc-sm", "old"], default="gdc-sm",
                 help="gdc-sm = GDC-SM v1.0 (259 pairs, n:m); old = GDC_new/<study>/groundtruth.csv (197 rows)")
-ap.add_argument("--gt-dir", default=os.environ.get("GDC_SM_GT_DIR", HERE.parents[1] / "datasets" / "gdc_sm" / "extracted" / "data" / "ground-truth"),
-                help="GDC-SM ground-truth folder (default: $GDC_SM_GT_DIR or <repo>/datasets/gdc_sm/extracted/data/ground-truth)")
 ap.add_argument("--out-dir", default=HERE / "results")
 ap.add_argument("--rescore", default=None, help="folder with an earlier run's CSV (same tag): rescore its predictions")
 ap.add_argument("--run", type=int, default=1)
@@ -28,25 +41,14 @@ ap.add_argument("--k", type=int, default=20)
 ap.add_argument("--think", action="store_true")
 ap.add_argument("--mode", choices=["shortlist", "full"], default="shortlist", help="full = all target names in prompt")
 ap.add_argument("--temperature", type=float, default=None, help="unset = model default")
+ap.add_argument("--seed", type=int, default=None, help="Ollama sampling seed (unset = random)")
+ap.add_argument("--num-ctx", type=int, default=16384)
 args = ap.parse_args()
 
-d = Path(args.data_dir) / args.study
-src = pd.read_csv(d / "source.csv", low_memory=False)
+data = Data(args.data_root) if args.data_root else Data(default_root())
+d = data.source_path(args.study).parent  # accepts "gillette" or GDC_new's "gilette"
+src = pd.read_csv(d / "source.csv", low_memory=False)  # default parsing, as in the original prompts
 tgt = pd.read_csv(d / "target.csv", low_memory=False)
-
-def load_gold():
-    """{source column: set of correct target columns}. Columns not listed should be answered NONE."""
-    if args.gt == "old":
-        gt = pd.read_csv(d / "groundtruth.csv", dtype=str).drop_duplicates()
-    else:  # GDC-SM file names are capitalized; GDC_new spells Gillette as "gilette"
-        key = {"gilette": "gillette"}.get(args.study.lower(), args.study.lower())
-        path = next(f for f in Path(args.gt_dir).glob("*.csv") if f.stem.lower() == key)
-        gt = pd.read_csv(path, dtype=str)
-    gt = gt.iloc[:, :2].apply(lambda c: c.str.strip())
-    gt.columns = ["source", "target"]
-    return gt.groupby("source")["target"].apply(set).to_dict()
-
-gold = load_gold()
 
 def norm(s):  # "Tumor_Size_cm" -> "tumor size cm"
     s = re.sub(r"([a-z])([A-Z])", r"\1 \2", str(s))
@@ -98,55 +100,84 @@ Candidate target columns (name: sample values):
 Pick the ONE candidate that represents the same attribute as the source column. If none fits, answer "NONE".
 Respond with JSON only: {{"target": "<exact candidate name or NONE>", "reason": "<one short sentence>"}}"""
 
-def ask(prompt):
-    body = {"model": args.model, "messages": [{"role": "user", "content": prompt}],
-            "stream": False, "format": "json", "think": args.think, "options": {"num_ctx": 16384}}
-    if args.temperature is not None: body["options"]["temperature"] = args.temperature
-    req = urllib.request.Request("http://localhost:11434/api/chat", json.dumps(body).encode(), {"Content-Type": "application/json"})
-    t = time.time()
-    with urllib.request.urlopen(req, timeout=600) as r:
-        d = json.load(r)
-    return d["message"].get("content", ""), time.time() - t
+options = {"num_ctx": args.num_ctx}
+if args.temperature is not None: options["temperature"] = args.temperature
+if args.seed is not None: options["seed"] = args.seed
 
 tag = f"{args.study}_{args.mode}{args.k if args.mode == 'shortlist' else ''}_{args.model.replace(':', '-').replace('/', '-')}{'_think' if args.think else ''}_run{args.run}"
-prior = None
+out = Path(args.out_dir); out.mkdir(parents=True, exist_ok=True)
+if (out / f"{tag}.csv").exists():
+    sys.exit(f"{out / f'{tag}.csv'} exists; use another --run number or --out-dir")
+prior, log = None, None
 if args.rescore:
     prior = pd.read_csv(Path(args.rescore) / f"{tag}.csv", keep_default_na=False).set_index("source")
+    run_id = tag
+else:
+    log = RunLog.create(out / "raw", "qwen_local", tag.split("_", 1)[1], args.study)
+    run_id = log.run_id
+    log.emit("run_header", **collect_run_header(
+        "qwen_local/clark_match", condition=dict(mode=args.mode, k=args.k if args.mode == "shortlist" else None,
+                                                 model=args.model, temperature=args.temperature, seed=args.seed,
+                                                 think=args.think, num_ctx=args.num_ctx, format="json", run=args.run),
+        task=dict(study=args.study, kind="sm"), llm=dict(model=args.model, endpoint="/api/chat", options=options),
+        prompts={"full": FULL_PROMPT, "shortlist": PROMPT}, data=data, ollama_models=[args.model], tag=tag))
 
-rows, t0 = [], time.time()
-for col in src.columns:
+records, legacy, t0 = [], [], time.time()
+for i, col in enumerate(src.columns):
     cands = list(tgt.columns) if args.mode == "full" else shortlist(col, args.k)
     if prior is not None:  # same candidates (shortlist is deterministic), earlier prediction
         p = prior.loc[col]
         raw, dt = json.dumps({"target": p["pred"], "reason": p["reason"]}), float(p["secs"])
-    elif args.mode == "full":  # same prefix every call -> Ollama reuses the KV cache
-        raw, dt = ask(FULL_PROMPT.format(col=col, vals=samples(src[col]), cands=", ".join(cands)))
     else:
-        cand_txt = "\n".join(f"- {c}: {samples(tgt[c], 4)}" for c in cands)
-        raw, dt = ask(PROMPT.format(col=col, vals=samples(src[col]), cands=cand_txt))
+        if args.mode == "full":  # same prefix every call -> Ollama reuses the KV cache
+            prompt = FULL_PROMPT.format(col=col, vals=samples(src[col]), cands=", ".join(cands))
+        else:
+            cand_txt = "\n".join(f"- {c}: {samples(tgt[c], 4)}" for c in cands)
+            prompt = PROMPT.format(col=col, vals=samples(src[col]), cands=cand_txt)
+        body = {"model": args.model, "messages": [{"role": "user", "content": prompt}], "format": "json",
+                "think": args.think, "options": options}
+        t = time.time()
+        raw = ollama_chat(body, log, "method:clark_match", step=i, timeout=600)["message"].get("content", "")
+        dt = time.time() - t
     try:
         obj = json.loads(raw); pred = str(obj.get("target", "")).strip(); reason = obj.get("reason", "")
         if pred.upper() == "NONE": pred = "NONE"
         status = "ok" if pred in cands or pred == "NONE" else ("hallucinated_in_target" if pred in tgt.columns else "hallucinated")
     except Exception:
         pred, reason, status = "", raw[:200], "invalid_json"
-    g = gold.get(col, set())
-    correct = (pred in g) if g else (pred == "NONE")
-    rows.append(dict(source=col, gold="|".join(sorted(g)) or "NONE", in_shortlist=bool(g & set(cands)) if g else True,
-                     pred=pred, correct=correct, status=status, secs=round(dt, 1), reason=reason))
-    print(f"{col:32s} -> {pred:35s} {'✓' if correct else '✗'} ({status}, {dt:.1f}s)", flush=True)
+    records.append(sm_record(run_id, args.study, col, [] if pred in ("", "NONE") else [pred],
+                             shown="*" if args.mode == "full" else cands,
+                             status="invalid_output" if status == "invalid_json" else "ok",
+                             latency_s=round(dt, 1), reason=reason, legacy_status=status))
+    legacy.append(dict(source=col, pred=pred, status=status, secs=round(dt, 1), reason=reason))
+
+items, s = score_sm(records, data, args.study, GT_VARIANT[args.gt])
+items = items.set_index("source_column")
+rows = []
+for r in legacy:
+    it = items.loc[r["source"]]
+    rows.append(dict(source=r["source"], gold=it["gold"] or "NONE",
+                     in_shortlist=bool(it["candidate_recall"]) if it["annotated"] else True,
+                     pred=r["pred"], correct=bool(it["closed_world_correct"]), status=r["status"], secs=r["secs"],
+                     reason=r["reason"]))
+    print(f"{r['source']:32s} -> {r['pred']:35s} {'✓' if it['closed_world_correct'] else '✗'} ({r['status']}, {r['secs']:.1f}s)", flush=True)
 
 df = pd.DataFrame(rows)
 total_secs = round(time.time() - t0, 1)
 if prior is not None:  # keep the original run's wall time
     old = [json.loads(l) for l in open(Path(args.rescore) / "summary.jsonl")]
     total_secs = next((x["total_secs"] for x in old if x["tag"] == tag), round(df.secs.sum(), 1))
-out = Path(args.out_dir); out.mkdir(parents=True, exist_ok=True)
 df.to_csv(out / f"{tag}.csv", index=False)
-has_gold = df[df.gold != "NONE"]
 summary = dict(tag=tag, gt=args.gt, total_secs=total_secs, n_cols=len(df),
-               acc_gold_cols=f"{has_gold.correct.sum()}/{len(has_gold)}",
-               shortlist_recall=f"{has_gold.in_shortlist.sum()}/{len(has_gold)}",
-               acc_all_incl_NONE=f"{df.correct.sum()}/{len(df)}", statuses=df.status.value_counts().to_dict())
+               acc_gold_cols=f"{s['top1_correct']}/{s['n_annotated']}",
+               shortlist_recall=f"{int(items[items.annotated].candidate_recall.sum())}/{s['n_annotated']}",
+               acc_all_incl_NONE=f"{s['closed_world_correct']}/{s['n_columns']}",
+               statuses=df.status.value_counts().to_dict(), run_id=run_id, scoring_version=s["scoring_version"])
+if log is not None:
+    write_predictions(log.run_dir / "predictions.jsonl", records)
+    log.emit("prediction_batch", path="predictions.jsonl", n=len(records))
+    log.emit("score", gt=s["gt"], summary=s)
+    log.write_file(f"items.{GT_VARIANT[args.gt]}.csv", items.reset_index().to_csv(index=False))
+    log.close(status="ok", total_secs=total_secs)
 print(json.dumps(summary, ensure_ascii=False))
 with open(out / "summary.jsonl", "a") as f: f.write(json.dumps(summary, ensure_ascii=False) + "\n")

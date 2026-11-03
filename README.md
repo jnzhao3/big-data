@@ -11,7 +11,7 @@ As of 2026-11-02:
 | Benchmark data selection and documentation | [`datasets/`](datasets/README.md) | Freya |
 | Shared Python environment | [`env/`](env/README.md) | Freya |
 | Feasibility study of local LLMs via Ollama (recommended: `qwen2.5:14b`) | [`experiments/qwen_local/`](experiments/qwen_local/README.md) | Freya |
-| Shared scoring, prediction format and run logging (`hbench`) | [PR #1](https://github.com/jnzhao3/big-data/pull/1) (under review) | Freya |
+| Shared scoring, prediction format and run logging (`hbench`) | [`hbench/`](hbench/README.md), `tests/` | Freya |
 
 ## Conventions
 
@@ -43,9 +43,11 @@ Data is not tracked in git; see [`datasets/README.md`](datasets/README.md) for d
 
 Do not score against `GDC_new/<study>/groundtruth.csv`; GDC-SM supersedes it.
 
+`datasets/MANIFEST.json` records checksums of the files used in scoring; verify a local copy with `python -m hbench manifest verify`.
+
 ### Predictions and run logs
 
-Each run writes `predictions.jsonl`, one decision per line, in the `hbench.pred/1` format (under review in [PR #1](https://github.com/jnzhao3/big-data/pull/1)):
+Each run writes `predictions.jsonl`, one decision per line, in the `hbench.pred/1` format:
 
 ```json
 {"schema": "hbench.pred/1", "run_id": "...", "kind": "sm", "study": "clark", "source_column": "Tumor_Site", "output_type": "ranked", "targets": ["site_of_resection_or_biopsy", "primary_site"], "shown": "*", "status": "ok"}

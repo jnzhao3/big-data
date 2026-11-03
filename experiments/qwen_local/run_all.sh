@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Runs every clark config twice. Extra args go to clark_match.py, e.g. ./run_all.sh --data-dir /path/to/GDC_new
+# Runs every clark config twice. Extra args go to clark_match.py, e.g. ./run_all.sh --out-dir results/repeat2 (existing CSVs are never overwritten)
 # Set PYTHON to pick the interpreter (needs pandas). Log: results/run_all.log
 PY=${PYTHON:-python}
 cd "${0:A:h}"

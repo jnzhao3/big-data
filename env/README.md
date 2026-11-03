@@ -11,14 +11,23 @@ bash env/setup_env.sh            # creates ~/venvs/harmonize
 bash env/setup_env.sh <dir>      # or a different location; the path must not contain spaces
 ```
 
-The script does five things:
+The script does six things:
 1. creates a venv;
 2. installs the exact versions in `requirements-lock.txt`;
-3. runs `pip check`;
-4. confirms that `litellm` is 1.82.6;
-5. checks that no unexpected `.pth` file was installed.
+3. installs this repo's `hbench` package in editable mode, so it follows your checkout;
+4. runs `pip check`;
+5. confirms that `litellm` is 1.82.6;
+6. checks that no unexpected `.pth` file was installed.
 
 Run scripts with `~/venvs/harmonize/bin/python <script>`.
+
+If the environment already exists, add `hbench` without rebuilding by running this from the repo root:
+
+```bash
+~/venvs/harmonize/bin/python -m pip install --no-deps --no-build-isolation -e .
+```
+
+`hbench` is the only package outside the lock, and the scripts still work without it, because they fall back to the repo copy.
 
 ## Rules
 
