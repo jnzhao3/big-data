@@ -320,6 +320,42 @@ def evidence(span_id: str | None, token_logprobs: list | None, text: str | None,
     return ev
 
 
+def call_evidence(normalized: dict, spec=None, *, transport: str | None = None, endpoint: str | None = None,
+                  span_id: str | None = None, prompt_sha256: str | None = None, key: str | None = None,
+                  caller: str | None = None, lock: dict | None = None, **extra) -> dict:
+    """evidence() for one decision of a call, taken entirely from what the call recorded: the decision from its
+    spec (or the parser registered for its caller; the first one, or the one named `key`), the greedy flag from
+    its temperature, the sampler from its decoding over its endpoint's defaults, grammar from its format. This
+    is what LLMResult.evidence() and evidence_from_call() return, so a method never restates any of it."""
+    from . import sampler
+
+    out = normalized.get("output") or {}
+    parser = parser_from_spec(spec) or (decision_parser(caller) if caller else None)
+    d = next((x for x in (parser(out) if parser else []) if key is None or x["key"] == key), None)
+    if prompt_sha256:
+        extra = {"prompt_sha256": prompt_sha256, **extra}
+    if d is None:
+        return {"span_id": span_id, **extra, "margin": None, "margin_found": False,
+                "margin_note": "no decision found in the output" if parser else "no decision spec for this call"}
+    dec = normalized.get("decoding") or {}
+    return evidence(span_id, normalized.get("token_logprobs"), out.get("text"), d["value"], decision=d,
+                    temperature=dec.get("temperature"),
+                    sampler_params=sampler.effective(dec, sampler.endpoint_of(transport, endpoint), lock), lock=lock,
+                    grammar=dec.get("format") is not None, **extra)
+
+
+def evidence_from_call(event: dict, blobs, key: str | None = None, lock: dict | None = None, **extra) -> dict:
+    """The same evidence from a logged llm_call, e.g. one LiteLLM made (runlog.litellm_cb logs it)."""
+    from .llm.record import load_tokens
+
+    normalized = {"output": event.get("output"), "decoding": event.get("decoding"),
+                  "token_logprobs": load_tokens(event, blobs)}
+    return call_evidence(normalized, event.get("decision_spec"), transport=event.get("transport"),
+                         endpoint=event.get("endpoint"), span_id=event.get("span_id"),
+                         prompt_sha256=event.get("prompt_sha256"), key=key, caller=event.get("caller"), lock=lock,
+                         **extra)
+
+
 def evidence_columns(ev: dict | None) -> dict:
     """Decision evidence carried into item tables: the deciding call, how close the decision was, and how likely
     sampling is to reproduce it. A v2 record (no margin_def) keeps its margin; it has no margin_value."""

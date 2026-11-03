@@ -13,6 +13,13 @@ from hbench.score_sm import score_sm
 CONFIGS = ["shortlist20_qwen2.5-14b", "full_qwen2.5-14b", "shortlist20_qwen3.8-27b-q4_K_M", "full_qwen3.8-27b-q4_K_M"]
 
 
+# The committed runs of the feasibility study. Listed by name, not globbed: a teammate's local run that writes
+# another clark_*.csv into results/ must not break these tests.
+COMMITTED = [f"clark_{cfg}_run{r}.csv" for cfg in ("full_qwen2.5-14b", "full_qwen3.8-27b-q4_K_M",
+                                                  "shortlist20_qwen2.5-14b", "shortlist20_qwen3.8-27b-q4_K_M")
+             for r in (1, 2)]
+
+
 def _summaries(path):
     return {json.loads(line)["tag"]: json.loads(line) for line in path.read_text().splitlines() if line.strip()}
 
@@ -20,8 +27,7 @@ def _summaries(path):
 @pytest.mark.parametrize("variant,summary", [("gdc-new-raw", "summary.jsonl"), ("gdc-sm", "gdc_sm/summary.jsonl")])
 def test_clark_runs_rescore_identically(data, results_dir, variant, summary):
     saved = _summaries(results_dir / summary)
-    csvs = sorted(results_dir.glob("clark_*.csv"))
-    assert len(csvs) == 8
+    csvs = [results_dir / name for name in COMMITTED]
     for p in csvs:
         _, s = score_sm(from_clark_match_csv(p), data, "clark", variant)
         w = saved[p.stem]
@@ -55,7 +61,7 @@ def test_magneto_saved_runs(data, results_dir, name, old_top1, sm_top1, sm_mrr):
 
 def test_gdc_sm_only_adds_correct_cells(data, results_dir):
     flips = []
-    for p in sorted(results_dir.glob("clark_*.csv")):
+    for p in [results_dir / name for name in COMMITTED]:
         recs = from_clark_match_csv(p)
         old = score_sm(recs, data, "clark", "gdc-new-raw")[0].set_index("source_column").closed_world_correct
         new = score_sm(recs, data, "clark", "gdc-sm")[0].set_index("source_column").closed_world_correct

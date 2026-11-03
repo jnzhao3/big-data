@@ -23,7 +23,6 @@ HERE = Path(__file__).resolve().parent
 # must match the commit recorded in the run header.
 sys.path.insert(0, str(HERE.parents[1]))
 from hbench.data import Data, default_root
-from hbench.decisions import evidence
 from hbench.design import make_condition
 from hbench.llm import LLMClient
 from hbench.predictions import sm_record, write_predictions
@@ -131,9 +130,9 @@ else:
                     task=dict(study=args.study, kind="sm"),
                     models=[args.model], prompts={"full": FULL_PROMPT, "shortlist": PROMPT}, data=data, tag=tag)
     run_id = log.run_id
+    # decoding comes from the condition: stated once
     client = LLMClient(log, args.model, transport=args.transport, num_ctx=args.num_ctx,
-                       top_logprobs=args.top_logprobs or None,
-                       decoding={"temperature": args.temperature, "seed": args.seed, "think": args.think})
+                       top_logprobs=args.top_logprobs or None)
 
 records, legacy, t0 = [], [], time.time()
 for i, col in enumerate(src.columns):
@@ -150,17 +149,13 @@ for i, col in enumerate(src.columns):
         res = client.chat([{"role": "user", "content": prompt}], caller=CALLER, step=i, format="json",
                           decision=DECISION)
         raw, dt = res.text or "", res.latency_s
-    emitted = None
     try:
-        obj = json.loads(raw); emitted = obj.get("target"); pred = str(obj.get("target", "")).strip(); reason = obj.get("reason", "")
+        obj = json.loads(raw); pred = str(obj.get("target", "")).strip(); reason = obj.get("reason", "")
         if pred.upper() == "NONE": pred = "NONE"
         status = "ok" if pred in cands or pred == "NONE" else ("hallucinated_in_target" if pred in tgt.columns else "hallucinated")
     except Exception:
         pred, reason, status = "", raw[:200], "invalid_json"
-    ev = None if prior is not None else evidence(res.span_id, res.token_logprobs, raw,
-                                                 emitted if isinstance(emitted, str) else None, json_key="target",
-                                                 temperature=args.temperature, sampler_params=log.effective_decoding,
-                                                 grammar=True, prompt_sha256=res.prompt_sha256)  # format=json
+    ev = None if prior is not None else res.evidence()  # margin etc. of the decision DECISION names
     records.append(sm_record(run_id, args.study, col, [] if pred in ("", "NONE") else [pred],
                              shown="*" if args.mode == "full" else cands,
                              status="invalid_output" if status == "invalid_json" else "ok",

@@ -124,3 +124,22 @@ def test_the_suite_never_touches_the_real_lease_or_server_log():
     from hbench.engine import snapshot
     assert design.LEASE_PATH != Path.home() / ".hbench" / "ollama.lock"   # a running experiment holds that one
     assert snapshot.SERVER_LOG != "/opt/homebrew/var/log/ollama.log"
+
+
+def test_readme_quick_start_example_runs(tmp_path, server, data):
+    """The Quick start's logging example, run as written against the mock server (with the benchmark data): if
+    the README drifts from the code, this fails."""
+    import json
+    import os
+    import re
+    import subprocess
+    import sys
+    from hbench.data import REPO_ROOT
+    readme = (REPO_ROOT / "hbench" / "README.md").read_text()
+    block = re.search(r"\*\*2\. Log a method.*?```python\n(.*?)```", readme, re.S)[1]
+    env = {**os.environ, "OLLAMA_HOST_URL": server, "HBENCH_RAW": str(tmp_path / "raw"), "HBENCH_DATA": str(data.root)}
+    r = subprocess.run([sys.executable, "-c", block], cwd=REPO_ROOT, env=env, capture_output=True, text=True)
+    assert r.returncode == 0, r.stderr[-3000:]
+    run = next(p for p in (tmp_path / "raw").iterdir() if p.name.startswith("my_exp-"))
+    rec = json.loads((run / "predictions.jsonl").read_text().splitlines()[0])
+    assert rec["targets"] == ["gender"] and rec["evidence"]["margin_found"] is True

@@ -1,6 +1,6 @@
 # Benchmark data
 
-The data stays local and is not tracked by git: `.gitignore` ignores `datasets/*`, so only this README is committed. Sources, versions and licenses for each directory are listed below. If data is missing, download it with the steps in "Re-fetching".
+The data stays local and is not tracked by git: `.gitignore` ignores `datasets/*`, so only this README and `MANIFEST.json` (the files' sizes and checksums) are committed. Sources, versions and licenses for each directory are listed below. If data is missing, download it with the steps in "Re-fetching".
 
 ## Files for the main experiments (GDC suite)
 
@@ -16,22 +16,18 @@ The data stays local and is not tracked by git: `.gitignore` ignores `datasets/*
 
 **Versions to cite:** GDC-SM v1.0 (Zenodo 14963588, 2025-04) + GDC-VM (Zenodo 18557064, 2026-02-09), with source tables from GDC_new in VIDA-NYU/data-harmonization-benchmark (main, commit 3207e37).
 
-**Checked on 2026-11-02:**
-- Every source column name in GDC-SM's 259 pairs appears in `source.csv`, and every target column name is in the 736-column target table.
-- All 158 GDC-VM source attributes appear in `source.csv`.
-- Every categorical target value in GDC-VM is a valid value in `gdc_schema.json`.
+The ground truths are consistent with the tables. Every column name in GDC-SM's 259 pairs and all 158 GDC-VM source attributes appear in `source.csv`, and every categorical GDC-VM target value is valid in `gdc_schema.json`.
 
 ## Pitfalls
 
-1. **Inconsistent number formats.** `source.csv` stores integers as decimals (e.g. `1031.0`), while GDC-VM writes `1031`. Of 2,873 distinct (attribute, source value) pairs, exact comparison matches only 2,009; after normalizing to integers, 2,869 match. The remaining 4 come from manual edits in the Clark and Wang source tables. Normalize formats before value-level scoring; see `num()` below.
+1. **Inconsistent number formats.** `source.csv` stores integers as decimals (e.g. `1031.0`), while GDC-VM writes `1031`. Of 2,873 distinct (attribute, source value) pairs, exact comparison matches only 2,009; after normalizing to integers, 2,869 match. The remaining 4 come from manual edits in the Clark and Wang source tables. Normalize formats before value-level scoring (`hbench.normalize.num()`).
 2. **Read GDC-VM with `dtype=str, keep_default_na=False`.** An empty `target_value` means there is no suitable GDC value; an empty `source_value` means the source cell is missing. With default parsing both become NaN and cannot be told apart.
 3. **A source value can have several correct targets.** For example, missing values map to {Not Reported, Unknown}, and capitalization varies by attribute. Score against the gold set: hitting any member counts as correct; when the gold set is empty, only answering "no match" is correct.
 4. **Report numeric tasks separately.** 39 identity-copy pairs (1,933 matches) are easy and inflate the overall score. 10 `age_at_diagnosis` pairs need conversion to days: years × 365.25, months × 30.4375. Vasaikar's `Age`, Krug's `Age.in.Month` and McDermott's `Age in Months…` are all in months.
 5. **Inconsistent study-name spelling.** The GDC_new directory is `gilette`; GDC-SM and GDC-VM use `Gillette`.
 6. **Target-table "rows" are not records.** Each column stacks that attribute's permissible values from top to bottom, and 380 of the 736 columns are empty. Do not sample or shuffle target-table rows.
 7. **Column names contain dots.** The 5 affected source tables have 178 such names (e.g. `Tumor.Stage`); quote them with backticks in Spark.
-8. **BDI-Kit calls a cloud model by default.** Its LLM matchers default to `openai/gpt-4o-mini`. To run local Qwen, point LiteLLM at Ollama explicitly.
-9. **LLMs may have memorized the GDC vocabulary** (see MetaHarmonizer). Add a control condition with renamed targets to the main experiments.
+8. **LLMs may have memorized the GDC vocabulary** (see MetaHarmonizer). Add a control condition with renamed targets to the main experiments.
 
 ## Directories
 
@@ -45,45 +41,22 @@ The data stays local and is not tracked by git: `.gitignore` ignores `datasets/*
 | `omop_schema_matching/` | SMAT/OMAP, ReMatch MIMIC_2_OMOP, Parciak MIMIC-IV→OMOP, LLMatch SchemaNet | GitHub. ReMatch and Parciak are MIT-licensed; the others have no license | Optional: cross-target transfer |
 | `bio_ml_ncit_doid/` | OAEI Bio-ML 2024 NCIT-DOID (zip and extracted files) | Zenodo 13119437, CC BY 4.0 | Optional: stress test |
 
-In addition, `third_party/data-harmonization-benchmark/` is a clone of VIDA's evaluation repository (main branch, commit 3207e37), kept only as a code reference. Note that its evaluation scripts keep only the metrics from the last round.
-
 ## Loading
 
+Use `hbench.data.Data`. The scorer uses the same loader, and it handles the pitfalls above (string types, number formats, study spellings):
+
 ```python
-import json
-import pandas as pd
-
-ROOT = "datasets"  # run from the big-data repo root
-STUDIES = ["Cao", "Clark", "Dou", "Gillette", "Huang", "Krug", "McDermott", "Satpathy", "Vasaikar", "Wang"]
-FOLDER = {s: ("gilette" if s == "Gillette" else s.lower()) for s in STUDIES}  # directory names in GDC_new
-
-
-def num(v):
-    """Normalize '1031.0' to '1031', matching GDC-VM's format."""
-    try:
-        f = float(v)
-        return str(int(f)) if f.is_integer() else v
-    except ValueError:
-        return v
-
-
-study = "Dou"
-src = pd.read_csv(f"{ROOT}/GDC_new/{FOLDER[study]}/source.csv", dtype=str, keep_default_na=False)
-target = pd.read_csv(f"{ROOT}/gdc_sm/extracted/data/target-tables/gdc_unique_columns_concat_values.csv",
-                     dtype=str, keep_default_na=False, na_values=[""])
-sm_gt = pd.read_csv(f"{ROOT}/gdc_sm/extracted/data/ground-truth/{study}.csv", dtype=str)
-# columns: original_paper_variable_names, GDC_format_variable_names
-vm_gt = pd.read_csv(f"{ROOT}/gdc_vm/{study}.csv", dtype=str, keep_default_na=False)
-# columns: source_attribute, target_attribute, source_value, target_value
-schema = json.load(open(f"{ROOT}/gdc_vm/gdc_schema.json"))
-permissible = {a: list((v.get("value_data") or {}).keys()) for a, v in schema.items()}
-
-# Value-level gold: (source attribute, target attribute, source value) -> set of correct target values; empty set means "no match"
-gold = (vm_gt.groupby(["source_attribute", "target_attribute", "source_value"]).target_value
-        .apply(lambda s: frozenset(x for x in s if x)))
-attr = vm_gt.source_attribute.iloc[0]
-values_to_map = src[attr].map(num).unique()  # normalize number formats before looking up gold
+from hbench.data import Data
+d = Data()                      # $HBENCH_DATA, else <repo>/datasets
+src = d.source("dou")           # a study's source table
+gold = d.sm_gold("dou")         # column -> set of correct GDC targets
+items, _ = d.vm_items("dou")    # value-matching items with their gold sets
 ```
+
+If you read the files directly:
+- GDC-SM's `<Study>.csv` has the columns `original_paper_variable_names, GDC_format_variable_names`.
+- GDC-VM's has `source_attribute, target_attribute, source_value, target_value`. Read it with `dtype=str, keep_default_na=False`.
+- `gdc_schema.json` maps each attribute to its definition, with permissible values under `value_data`.
 
 ## Re-fetching
 

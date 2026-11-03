@@ -1,75 +1,90 @@
 # big-data
 
-Final project for the NYU Big Data course (Group 9).
+Final project for the NYU Big Data course (Group 9). We study how reproducible LLM-based data-harmonization methods and agents are when they run on a local model. The task is to match the columns and values of ten CPTAC clinical tables to the GDC data model. We measure how much repeated runs differ, and why.
 
-## Progress
+## Start here
 
-As of 2026-11-02:
+1. **Ollama and the model.** The project is pinned to Ollama 0.40.0, run as the Homebrew service (`env/engine-lock.json`):
 
-| Component | Location | Owner |
-|---|---|---|
-| Benchmark data selection and documentation | [`datasets/`](datasets/README.md) | Freya |
-| Shared Python environment | [`env/`](env/README.md) | Freya |
-| Feasibility study of local LLMs via Ollama (recommended: `qwen2.5:14b`) | [`experiments/qwen_local/`](experiments/qwen_local/README.md) | Freya |
-| Shared scoring, prediction format, run logging, engine audit and replay (`hbench`) | [`hbench/`](hbench/README.md), `tests/` | Freya |
+   ```bash
+   brew install ollama && brew pin ollama      # pin, so Homebrew never upgrades it silently
+   brew services start ollama
+   ollama --version                           # 0.40.0
+   ollama pull qwen2.5:14b                    # about 9 GB
+   ```
 
-## Conventions
+   If Homebrew gives you a version other than 0.40.0, tell Freya before running experiments. `log validate` reports every run on another engine version as a problem. Everything so far was tested on a MacBook Pro M1 Max with 64 GB.
 
-All experiments follow these conventions so that results are comparable.
+2. **Python environment:** `bash env/setup_env.sh` creates `~/venvs/harmonize` (Python 3.12). See [`env/README.md`](env/README.md).
 
-### Environment
+3. **Data:** download it into `datasets/` as [`datasets/README.md`](datasets/README.md) describes ("Re-fetching").
 
-Use the shared environment in `env/` (Python 3.12):
+4. **Check the setup**, from the repo root:
 
-```bash
-bash env/setup_env.sh                  # creates ~/venvs/harmonize
-~/venvs/harmonize/bin/python <script>
-```
+   ```bash
+   PY=~/venvs/harmonize/bin/python
+   $PY -m hbench manifest verify                      # your data matches datasets/MANIFEST.json
+   $PY -m hbench engine check --models qwen2.5:14b    # your Ollama matches env/engine-lock.json
+   $PY -m pytest -q                                   # all tests pass
+   ```
 
-- Do not upgrade or add individual packages; change versions only in `env/requirements-lock.txt`.
-- Keep `litellm` at 1.82.6; versions 1.82.7 and 1.82.8 were compromised on PyPI.
-- Pipelines with conflicting dependencies may use a separate environment but must write predictions in the shared format.
-- The lock file has been tested on macOS (arm64) only.
+5. **A first run** (about one minute). It should report `"acc_gold_cols": "9/14"` and write its run folder under `~/hbench_raw/`:
 
-### Data
+   ```bash
+   $PY -I experiments/qwen_local/clark_match.py --model qwen2.5:14b --mode shortlist --study clark --run 1 \
+       --temperature 0 --seed 1 --engine-protocol cold_start --out-dir ~/hbench_raw/csv
+   $PY -m hbench log validate ~/hbench_raw/<run_id>   # the run_id is in the printed summary
+   ```
 
-Data is not tracked in git; see [`datasets/README.md`](datasets/README.md) for download instructions.
+6. **Your own method:** follow the Quick start in [`hbench/README.md`](hbench/README.md).
 
-| Purpose | Source |
+## What is here
+
+| Folder | What it is |
 |---|---|
-| Column-level ground truth | GDC-SM v1.0 (Zenodo 14963588), 259 pairs |
-| Value-level ground truth | GDC-VM (Zenodo 18557064) |
-| Source tables | `GDC_new/<study>/source.csv` from [VIDA-NYU/data-harmonization-benchmark](https://github.com/VIDA-NYU/data-harmonization-benchmark) |
+| [`datasets/`](datasets/README.md) | Which benchmark files to use, how to get them, and their pitfalls. The data itself is not in git |
+| [`env/`](env/README.md) | The shared Python environment and the pinned inference engine |
+| [`hbench/`](hbench/README.md) | The shared library: prediction format, scoring, run logging and checks. `tests/` holds its tests |
+| [`experiments/qwen_local/`](experiments/qwen_local/README.md) | Two methods on local Qwen, `clark_match` and Magneto, with the feasibility study's results |
+| `notebooks/` | Exploration notebooks and draft scripts |
 
-Do not score against `GDC_new/<study>/groundtruth.csv`; GDC-SM supersedes it.
+The planned experiments, which the run logs are built for:
 
-`datasets/MANIFEST.json` records checksums of the files used in scoring; verify a local copy with `python -m hbench manifest verify`.
+| | Experiment |
+|---|---|
+| E1 | Engine noise floor: how much the inference engine alone changes outputs |
+| E2 | Magneto repeated runs |
+| E3 | The BDI-Kit agent end to end (schema and value matching), timed |
+| E4 | Repeated agent runs and a decomposition of their variance |
+| E5 | Where two runs diverge, and replaying a run from that point |
+| E6 | Interventions that stabilize runs (temperature, seeds, voting, caching, ordering) |
+| E7 | What the agent says versus what it does |
 
-### Predictions and run logs
+## Rules for every run
 
-Each run writes `predictions.jsonl`, one decision per line, in the `hbench.pred/1` format:
+These keep results comparable across runs, methods and people.
 
-```json
-{"schema": "hbench.pred/1", "run_id": "...", "kind": "sm", "study": "clark", "source_column": "Tumor_Site", "output_type": "ranked", "targets": ["site_of_resection_or_biopsy", "primary_site"], "shown": "*", "status": "ok"}
-```
-
-- `targets: []` denotes no match. `shown` lists the candidates presented to the method; `"*"` denotes all 736 GDC columns.
-- Value-matching records use `"kind": "vm"` with `source_attribute`, `target_attribute` and `source_value`. See `hbench/README.md` for the full specification.
-- Raw logs go outside the repo, to `$HBENCH_RAW` or by default `~/hbench_raw`. Qwen's logprob candidates in them contain Chinese tokens. Commit only summaries. Give each run a unique `run_id` and never overwrite earlier runs.
-
-To validate and score a run:
-
-```bash
-python -m hbench preds validate predictions.jsonl
-python -m hbench score predictions.jsonl --gt gdc-sm
-```
-
-### LLM calls
-
-- Set the temperature explicitly in every call; the Ollama default is not zero and differs by endpoint (0.8 on `/api/chat`, 1.0 on `/v1`).
-- Run Ollama as the Homebrew service. `env/engine-lock.json` pins its version, models and settings; see `env/README.md`.
-- Log every call: use `hbench.llm.LLMClient`, or LiteLLM's `openai/` route with `hbench.runlog.litellm_cb`. The `ollama_chat/` route cannot return logprobs.
-- Open runs with `hbench.runlog.session.start_run` and check them with `python -m hbench log validate <run_dir>`.
-- State the engine protocol of repeated runs. `engine.protocol: "cold_start"` unloads the model before each run, so every replicate starts from the same engine state. At T=0, output depends on how each cached token was computed, and back-to-back repeats change that (see `hbench/README.md`).
-- BDI-Kit's LLM matchers default to the cloud model `openai/gpt-4o-mini`; specify an Ollama model for local runs.
-- BDI-Kit returns cached results for repeated calls. Pass `use_cache=False` or clear `~/.cache/bdikit/runs/` before each run.
+- **Environment.** Use `~/venvs/harmonize`.
+  - Never add or upgrade packages in it; change versions only in `env/requirements-lock.txt`.
+  - Keep `litellm` at 1.82.6: versions 1.82.7 and 1.82.8 were compromised on PyPI.
+- **Commands.** Run everything from the repo root.
+  - Scripts: `~/venvs/harmonize/bin/python -I <script>`.
+  - hbench commands: `~/venvs/harmonize/bin/python -m hbench ...`.
+  - BDI-Kit runs that need `PYTHONHASHSEED` use `-s` instead of `-I` (see `env/README.md`).
+- **Engine.** Use Ollama 0.40.0 as the Homebrew service, and let nothing else use it while a run is going.
+  - hbench's lease keeps two of our runs from overlapping.
+  - Any other client shows up in the run's audit as foreign requests, and `log validate` fails the run.
+- **Data.** Score against GDC-SM and GDC-VM with `python -m hbench score`, never against `GDC_new/<study>/groundtruth.csv`.
+- **LLM calls.**
+  - Set the temperature explicitly: the Ollama default is not zero and differs by endpoint.
+  - Log every call, with `hbench.llm.LLMClient` or LiteLLM's `openai/` route plus `hbench.runlog.litellm_cb`. The `ollama_chat/` route cannot return logprobs.
+  - Open runs with `start_run`, and check each one with `python -m hbench log validate <run_dir>`.
+- **Repeated runs.** Use `engine.protocol: "cold_start"`, so every repeat starts from the same engine state. See the Quick start.
+- **Outputs.**
+  - Each run writes `predictions.jsonl` in the shared format (`hbench/README.md`).
+  - Raw run logs go to `$HBENCH_RAW`, by default `~/hbench_raw`, never into the repo. Qwen's logprob candidates in the logs and in `predictions.jsonl` can contain Chinese tokens.
+  - Commit summary tables only, and never overwrite an earlier run.
+- **BDI-Kit.**
+  - Its LLM matchers default to the cloud model `openai/gpt-4o-mini`; point them at Ollama for local runs.
+  - It returns cached results for repeated calls: pass `use_cache=False` or clear `~/.cache/bdikit/runs/` before each run.
+  - A runner script for the BDI-Kit agent is still in progress and not in the repo yet.

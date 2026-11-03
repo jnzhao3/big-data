@@ -223,3 +223,56 @@ def test_prompt_sha256_includes_think(tmp_path, server):
     b = c.chat([{"role": "user", "content": "q"}], caller="x", temperature=0, think=False)
     log.close()
     assert a.prompt_sha256 != b.prompt_sha256  # thinking changes what the model is shown
+
+
+def _effective(decoding, endpoint="/api/chat"):
+    from hbench.sampler import effective
+    return effective(decoding, endpoint)
+
+
+def test_result_evidence_is_the_explicit_call_in_one_line(tmp_path, server):
+    from hbench.decisions import evidence
+    log = RunLog.create(tmp_path, "e0", "t", "clark", run_id="r")
+    res = LLMClient(log, "m", base=server, decoding={"temperature": 0, "seed": 1}).chat(
+        [{"role": "user", "content": "q"}], caller="x", format="json", decision={"type": "json_field", "field": "target"})
+    log.close()
+    explicit = evidence(res.span_id, res.token_logprobs, res.text, "gender", json_key="target", temperature=0,
+                        sampler_params=_effective(res.normalized["decoding"]), grammar=True,
+                        prompt_sha256=res.prompt_sha256)
+    assert res.evidence() == explicit and res.evidence()["margin_found"] is True
+    assert res.evidence(source="test")["source"] == "test"  # extra fields are kept, as with evidence()
+
+
+def test_evidence_from_a_logged_call_matches_the_result(tmp_path, server):
+    from hbench.decisions import evidence_from_call
+    log = RunLog.create(tmp_path, "e0", "t", "clark", run_id="r")
+    res = LLMClient(log, "m", base=server, decoding={"temperature": 0}).chat(
+        [{"role": "user", "content": "q"}], caller="x", format="json", decision={"type": "json_field", "field": "target"})
+    log.close()
+    event = next(e for e in read_events(tmp_path / "r") if e["type"] == "llm_call")
+    assert evidence_from_call(event, log.blobs) == res.evidence()  # e.g. for calls made through LiteLLM
+
+
+def test_result_evidence_picks_a_decision_by_key_and_reports_a_missing_one():
+    from hbench.decisions import call_evidence
+    from hbench.llm.normalize import normalize_native
+    n = normalize_native(TOOL["ollama"]["request"], TOOL["ollama"]["response"])
+    spec = [{"type": "tool_call", "field": "name"}, {"type": "tool_call", "field": "arguments.source_column"}]
+    first = call_evidence(n, spec, transport="ollama", span_id="s")
+    arg = call_evidence(n, spec, transport="ollama", span_id="s", key="arguments.source_column")
+    assert round(first["margin_value"], 2) == 10.53 and round(arg["margin_value"], 2) == 8.96
+    none = call_evidence({**n, "output": {"text": "not json", "tool_calls": None}},
+                         {"type": "json_field", "field": "target"}, transport="ollama", span_id="s")
+    assert none["margin_found"] is False and none["margin_note"] == "no decision found in the output"
+
+
+def test_client_decoding_defaults_to_the_run_condition(tmp_path, server):
+    from hbench.design import make_condition
+    from hbench.runlog.session import start_run
+    cond = make_condition(method={"name": "m"}, model={"name": "m"}, decoding={"temperature": 0.8, "seed": "per_replicate"},
+                          engine={"transport": "ollama"}, data={"study": "clark"}, replicate=4)
+    log = start_run(tmp_path / "raw", "e0", cond, task={"kind": "sm"}, verify_data=False)
+    LLMClient(log, "m", base=server).chat([{"role": "user", "content": "q"}], caller="x")
+    log.close()
+    sent = _Server.seen[-1][1]["options"]
+    assert (sent["temperature"], sent["seed"]) == (0.8, 4)  # stated once, in the condition; the seed resolved

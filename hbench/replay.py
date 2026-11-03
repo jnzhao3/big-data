@@ -52,7 +52,7 @@ def client_for(event: dict, log, base: str | None = None) -> LLMClient:
     if transport is None:
         raise ValueError(f"cannot replay transport {event.get('transport')!r}")
     return LLMClient(log, event.get("model"), transport=transport, base=base or api_base(event), top_logprobs=None,
-                     per_call="none")
+                     decoding={}, per_call="none")  # sends logged bodies as they are
 
 
 def api_base(event: dict) -> str:
