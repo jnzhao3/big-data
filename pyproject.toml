@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hbench"
+version = "0.1.0"
+description = "Shared scoring and run logging for the GDC harmonization experiments"
+requires-python = ">=3.10"
+# The core needs only pandas and numpy; hbench.runlog.litellm_cb also needs litellm (in env/requirements-lock.txt).
+dependencies = ["pandas", "numpy"]
+
+[tool.setuptools.packages.find]
+include = ["hbench*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"

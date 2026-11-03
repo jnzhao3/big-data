@@ -1,0 +1,227 @@
+{
+ "files": {
+  "GDC_new/cao/groundtruth.csv": {
+   "bytes": 1203,
+   "md5": "209eaf2256818c22c66be8f481c72f01"
+  },
+  "GDC_new/cao/source.csv": {
+   "bytes": 65546,
+   "md5": "d2360c3db19a257f8b2b4fb81fef7750"
+  },
+  "GDC_new/cao/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/clark/groundtruth.csv": {
+   "bytes": 495,
+   "md5": "6f467d69dec960bf53a6f0d1ffef796a"
+  },
+  "GDC_new/clark/source.csv": {
+   "bytes": 13806,
+   "md5": "d671985341b68782ad70b76075b8376d"
+  },
+  "GDC_new/clark/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/dou/groundtruth.csv": {
+   "bytes": 663,
+   "md5": "79262d297b094ea259ea04685e01e8f1"
+  },
+  "GDC_new/dou/source.csv": {
+   "bytes": 213263,
+   "md5": "fb4f253c3eaaa8fcdd6a88422f6abda0"
+  },
+  "GDC_new/dou/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/gilette/groundtruth.csv": {
+   "bytes": 440,
+   "md5": "34678981c2d1dce7c7b62c27efaeb694"
+  },
+  "GDC_new/gilette/source.csv": {
+   "bytes": 96742,
+   "md5": "5d96eef3c445b29a0e54b26656ee2c53"
+  },
+  "GDC_new/gilette/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/huang/groundtruth.csv": {
+   "bytes": 1233,
+   "md5": "998ece3190faa689ba0e1ebe515fa9a3"
+  },
+  "GDC_new/huang/source.csv": {
+   "bytes": 52033,
+   "md5": "0eaa87cae9718ffeaf6f917067db37e0"
+  },
+  "GDC_new/huang/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/krug/groundtruth.csv": {
+   "bytes": 261,
+   "md5": "b07ce3c9e2dd7afb51a7656cc6997df6"
+  },
+  "GDC_new/krug/source.csv": {
+   "bytes": 36478,
+   "md5": "7d7ce87e94cd8989d2aa73f9170c2180"
+  },
+  "GDC_new/krug/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/mcdermott/groundtruth.csv": {
+   "bytes": 996,
+   "md5": "227f78f803150794ddd05efbac3af425"
+  },
+  "GDC_new/mcdermott/source.csv": {
+   "bytes": 17349,
+   "md5": "131a4a1b820825baf59804647fd39fd6"
+  },
+  "GDC_new/mcdermott/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/satpathy/groundtruth.csv": {
+   "bytes": 492,
+   "md5": "fc425badc32151973fd9103c58c0f8d1"
+  },
+  "GDC_new/satpathy/source.csv": {
+   "bytes": 97889,
+   "md5": "07304126333a25234c3651f7d82fe664"
+  },
+  "GDC_new/satpathy/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/vasaikar/groundtruth.csv": {
+   "bytes": 505,
+   "md5": "46c472f980be84d64f5f4d3aaee3d6be"
+  },
+  "GDC_new/vasaikar/source.csv": {
+   "bytes": 24489,
+   "md5": "54854ed5c8aa3ba1aa7a34b491ee071e"
+  },
+  "GDC_new/vasaikar/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "GDC_new/wang/groundtruth.csv": {
+   "bytes": 772,
+   "md5": "c20376d521d14c120c212fffcf28504a"
+  },
+  "GDC_new/wang/source.csv": {
+   "bytes": 23823,
+   "md5": "6abbc0c97a62711618f33415f98cb0dd"
+  },
+  "GDC_new/wang/target.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "gdc_sm/extracted/data/ground-truth/Cao.csv": {
+   "bytes": 1864,
+   "md5": "cccfe3881fbce8f7c11a78d4d25bc927"
+  },
+  "gdc_sm/extracted/data/ground-truth/Clark.csv": {
+   "bytes": 883,
+   "md5": "78b8e0e9af999e5c24028d02311cf932"
+  },
+  "gdc_sm/extracted/data/ground-truth/Dou.csv": {
+   "bytes": 1167,
+   "md5": "1cb368163db72e3a3e688e660996f254"
+  },
+  "gdc_sm/extracted/data/ground-truth/Gillette.csv": {
+   "bytes": 628,
+   "md5": "bfdf99fd17fcc3db6a480ab86a0b7a3f"
+  },
+  "gdc_sm/extracted/data/ground-truth/Huang.csv": {
+   "bytes": 1430,
+   "md5": "5f127da6877659248976e0810aaf096a"
+  },
+  "gdc_sm/extracted/data/ground-truth/Krug.csv": {
+   "bytes": 385,
+   "md5": "81fe8deb14a0152175e0c560a8166ee5"
+  },
+  "gdc_sm/extracted/data/ground-truth/McDermott.csv": {
+   "bytes": 1116,
+   "md5": "6b96aebb3d216a7d4969c37dd5fcf3c0"
+  },
+  "gdc_sm/extracted/data/ground-truth/Satpathy.csv": {
+   "bytes": 713,
+   "md5": "4f35d613b4c31102ec6ced1dcee26536"
+  },
+  "gdc_sm/extracted/data/ground-truth/Vasaikar.csv": {
+   "bytes": 645,
+   "md5": "563f762762fb1b748882f78e7e41c4f5"
+  },
+  "gdc_sm/extracted/data/ground-truth/Wang.csv": {
+   "bytes": 991,
+   "md5": "0c8ed36480ac139b3f804b74f6d0810d"
+  },
+  "gdc_sm/extracted/data/target-tables/gdc_unique_columns_concat_values.csv": {
+   "bytes": 3646177,
+   "md5": "53ff20f7866f216bc0022961d7f6a2a9"
+  },
+  "gdc_sm/gdc-sm-data.zip": {
+   "bytes": 179992,
+   "md5": "d83948e4050f272b0e5564a16747535c"
+  },
+  "gdc_vm/Cao.csv": {
+   "bytes": 40466,
+   "md5": "5d31224afc211906967e55d40859958d"
+  },
+  "gdc_vm/Clark.csv": {
+   "bytes": 17601,
+   "md5": "09533204a95e300bdc714e6992061bc5"
+  },
+  "gdc_vm/Dou.csv": {
+   "bytes": 17416,
+   "md5": "800cbd88ef8a49a05480b943c2bdf9f9"
+  },
+  "gdc_vm/Gillette.csv": {
+   "bytes": 12259,
+   "md5": "697d142b2bd247606ffa7a90e8b378c2"
+  },
+  "gdc_vm/Huang.csv": {
+   "bytes": 18567,
+   "md5": "18c9f6cd79578f5bfec1eaf5b0e005a7"
+  },
+  "gdc_vm/Krug.csv": {
+   "bytes": 9370,
+   "md5": "e0c4611444b2cdecc40ad40485abc7e2"
+  },
+  "gdc_vm/McDermott.csv": {
+   "bytes": 15649,
+   "md5": "96b9c1852b1142c0ed0bb9525185e694"
+  },
+  "gdc_vm/Satpathy.csv": {
+   "bytes": 10134,
+   "md5": "b78edfc32865471174af6924e5cd5c46"
+  },
+  "gdc_vm/Vasaikar.csv": {
+   "bytes": 11350,
+   "md5": "8a455af9359cbbd10c2af684ee25ca28"
+  },
+  "gdc_vm/Wang.csv": {
+   "bytes": 27243,
+   "md5": "04fb860bb68987a990616a00a8af45a1"
+  },
+  "gdc_vm/gdc_schema.json": {
+   "bytes": 2613397,
+   "md5": "a02f4e2dbaa516be1d34f195356aea64"
+  },
+  "gdc_vm/gdc_schema_flattened.csv": {
+   "bytes": 3625749,
+   "md5": "11bae43b3c7b2146b54e8d108e4f011c"
+  }
+ },
+ "manifest_sha256": "81f6dc50118fbee5fafbb06c076d4fb4437240fa88ab7b594d31bcb4820c5828",
+ "manifest_version": 1,
+ "sources": {
+  "GDC_new": "VIDA-NYU/data-harmonization-benchmark main@3207e37, datasets/GDC_new.tar.gz",
+  "gdc_sm": "Zenodo 14963588 (GDC-SM v1.0, 2025-04)",
+  "gdc_vm": "Zenodo 18557064 (GDC-VM, 2026-02-09)"
+ }
+}
