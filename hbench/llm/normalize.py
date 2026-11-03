@@ -10,10 +10,15 @@ list is the server's top-k and normally includes the chosen token itself.
 
 from __future__ import annotations
 
+import json
+
 # Parameters that change what the model generates. Logprob settings are excluded: they change the
 # response payload, not the generation, so they stay out of input_sha256.
 GENERATION_KEYS = ("temperature", "top_p", "top_k", "min_p", "seed", "max_tokens", "stop", "format", "num_ctx",
                    "think", "repeat_penalty", "tools")
+# Also part of what generates, but only when set: added after v2, so leaving them out when absent keeps every
+# earlier input_sha256 unchanged.
+EXTRA_GENERATION_KEYS = ("frequency_penalty", "presence_penalty", "typical_p", "mirostat")
 COLD_LOAD_MS = 500.0  # a native call whose load_duration exceeds this loaded the model itself
 
 
@@ -40,12 +45,21 @@ def _tokens(entries) -> list | None:
 
 
 def _tool_calls(calls):
+    """[{"name", "arguments"}]. /v1 sends arguments as a JSON string (re-serialized, without the spaces the model
+    generated), /api/chat as an object; both become an object, so the same call compares and hashes the same.
+    A string that is not valid JSON is kept, flagged arguments_invalid."""
     if not calls:
         return None
     out = []
     for c in calls:
         fn = c.get("function", c)
-        out.append({"name": fn.get("name"), "arguments": fn.get("arguments")})
+        item = {"name": fn.get("name"), "arguments": fn.get("arguments")}
+        if isinstance(item["arguments"], str):
+            try:
+                item["arguments"] = json.loads(item["arguments"])
+            except json.JSONDecodeError:
+                item["arguments_invalid"] = True
+        out.append(item)
     return out
 
 
@@ -54,7 +68,9 @@ def decoding_native(request: dict) -> dict:
     return {"temperature": o.get("temperature"), "top_p": o.get("top_p"), "top_k": o.get("top_k"),
             "min_p": o.get("min_p"), "seed": o.get("seed"), "max_tokens": o.get("num_predict"), "stop": o.get("stop"),
             "format": request.get("format"), "num_ctx": o.get("num_ctx"), "think": request.get("think"),
-            "repeat_penalty": o.get("repeat_penalty"), "tools": bool(request.get("tools")) or None,
+            "repeat_penalty": o.get("repeat_penalty"), "frequency_penalty": o.get("frequency_penalty"),
+            "presence_penalty": o.get("presence_penalty"), "typical_p": o.get("typical_p"),
+            "mirostat": o.get("mirostat"), "tools": bool(request.get("tools")) or None,
             "logprobs": request.get("logprobs"), "top_logprobs": request.get("top_logprobs")}
 
 
@@ -64,7 +80,9 @@ def decoding_openai(request: dict) -> dict:
             "min_p": None, "seed": request.get("seed"),
             "max_tokens": request.get("max_tokens", request.get("max_completion_tokens")), "stop": request.get("stop"),
             "format": "json" if rf.get("type") == "json_object" else (rf or None), "num_ctx": None, "think": None,
-            "repeat_penalty": None, "tools": bool(request.get("tools")) or None,
+            "repeat_penalty": None, "frequency_penalty": request.get("frequency_penalty"),
+            "presence_penalty": request.get("presence_penalty"), "typical_p": None, "mirostat": None,
+            "tools": bool(request.get("tools")) or None,
             "logprobs": request.get("logprobs"), "top_logprobs": request.get("top_logprobs")}
 
 
@@ -137,4 +155,13 @@ NORMALIZERS = {"ollama": normalize_native, "openai_v1": normalize_openai}
 
 def generation_key(model: str, messages, decoding: dict) -> dict:
     """The part of a request that determines generation (input_sha256 is its hash)."""
-    return {"model": model, "messages": messages or [], "decoding": {k: decoding.get(k) for k in GENERATION_KEYS}}
+    dec = {k: decoding.get(k) for k in GENERATION_KEYS}
+    dec.update({k: decoding[k] for k in EXTRA_GENERATION_KEYS if decoding.get(k) is not None})
+    return {"model": model, "messages": messages or [], "decoding": dec}
+
+
+def prompt_key(model: str, messages, tools, format, think=None) -> dict:
+    """What the model is shown, without the sampling settings (prompt_sha256 is its hash): the same prompt at
+    T=0 and T=0.8, or with another seed, shares it, which input_sha256 does not. think changes the rendered
+    prompt, so it is part of it."""
+    return {"model": model, "messages": messages or [], "tools": tools or None, "format": format, "think": think}

@@ -1,29 +1,41 @@
 """Replay logged LLM calls under a chosen engine protocol and compare the outputs.
 
 This is the measuring instrument behind E1 (how much does the computation path move outputs), E5 (how faithful
-is a prefix replay) and E6 (does an intervention change that). A replay re-sends the exact logged request body;
-the protocol only prepares the engine state first:
+is a prefix replay) and E6 (does an intervention change that). A replay re-sends the exact logged request body,
+optionally with sampler settings overridden (apply_overrides: T>0 resampling of logged requests); the protocol
+only prepares the engine state:
 
     as_is            whatever state the server is in
-    cold             unload the model first: full recompute from an empty prompt cache
+    cold_start       unload the model once before the run (start_run does it), then replay the calls in order:
+                     a run that itself started cold gets its whole lineage back (only a prefix 0..k of the
+                     calls may be replayed)
+    cold             unload the model before each call: full recompute from an empty prompt cache
     resend           send the same request once before: the measured call recomputes only its last token
     after_unrelated  send an unrelated short request first: the slot holds another prompt (RAM-cache restore)
 
 compare() reports text identity, the first diverging token, logprob shifts at chosen tokens and over shared
 candidates, and, when the source call carries a decision_spec (or a parser is registered for its caller), the
-decision margins and whether the decision flipped.
+decision margins and whether the decision flipped: one row per decision the spec names (a tool call's name and
+its arguments are separate decisions), or one row without decision fields when there is none.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
+import copy
+
+from . import sampler
 from .decisions import decision_margin, decision_parser, parser_from_spec
 from .llm.client import LLMClient
 from .llm.record import load_tokens
 from .runlog.writer import BlobStore, read_events
 
-PROTOCOLS = {"as_is": (), "cold": ("unload",), "resend": ("send_source",), "after_unrelated": ("send_unrelated",)}
+PROTOCOLS = {"as_is": (), "cold_start": (), "cold": ("unload",), "resend": ("send_source",),
+             "after_unrelated": ("send_unrelated",)}
+RUN_PROTOCOL = {"cold_start": "cold_start", "cold": "cold"}  # the engine.protocol of the replay run (else natural)
+OVERRIDABLE = {"ollama": ("temperature", "seed", "top_p", "top_k", "min_p"),
+               "openai_v1": ("temperature", "seed", "top_p", "top_k")}
 UNRELATED = [{"role": "user", "content": "Write one sentence about rivers."}]
 _TRANSPORT = {"ollama": "ollama", "openai_v1": "openai_v1", "litellm/openai": "openai_v1",
               "litellm/ollama_chat": "ollama", "litellm/ollama": "ollama"}
@@ -39,14 +51,34 @@ def client_for(event: dict, log, base: str | None = None) -> LLMClient:
     transport = _TRANSPORT.get(event.get("transport"))
     if transport is None:
         raise ValueError(f"cannot replay transport {event.get('transport')!r}")
-    api = base or (event.get("api_base") or "http://localhost:11434").removesuffix("/v1")
-    return LLMClient(log, event.get("model"), transport=transport, base=api, top_logprobs=None)
+    return LLMClient(log, event.get("model"), transport=transport, base=base or api_base(event), top_logprobs=None,
+                     per_call="none")
 
 
-def replay_call(event: dict, blobs: BlobStore, client: LLMClient, protocol: str = "as_is", step: int | None = None):
+def api_base(event: dict) -> str:
+    return (event.get("api_base") or "http://localhost:11434").removesuffix("/v1")
+
+
+def apply_overrides(request: dict, transport: str, overrides: dict | None) -> dict:
+    """The logged request with sampler settings replaced (a copy): in options on /api/chat, at the top level on
+    /v1. Only sampler settings can be overridden; anything else would change what is being replayed."""
+    body = copy.deepcopy(request)
+    for k, v in (overrides or {}).items():
+        allowed = OVERRIDABLE[_TRANSPORT[transport]]
+        if k not in allowed:
+            raise ValueError(f"cannot override {k!r} on {transport} (allowed: {', '.join(allowed)})")
+        if _TRANSPORT[transport] == "ollama":
+            body.setdefault("options", {})[k] = v
+        else:
+            body[k] = v
+    return body
+
+
+def replay_call(event: dict, blobs: BlobStore, client: LLMClient, protocol: str = "as_is", step: int | None = None,
+                overrides: dict | None = None):
     if protocol not in PROTOCOLS:
         raise ValueError(f"protocol must be one of {sorted(PROTOCOLS)}")
-    request = blobs.get(event["request_raw"])
+    request = apply_overrides(blobs.get(event["request_raw"]), event.get("transport"), overrides)
     client.model = request.get("model", client.model)  # the bare model name, also used to unload it
     for action in PROTOCOLS[protocol]:
         if action == "unload":
@@ -58,8 +90,9 @@ def replay_call(event: dict, blobs: BlobStore, client: LLMClient, protocol: str 
             if client.transport == "ollama" and "options" in request:
                 body["options"]["num_ctx"] = request["options"].get("num_ctx", body["options"].get("num_ctx"))
             client.send(body, caller="replay:pre")
+    extra = {"overrides": overrides} if overrides else {}
     return client.send(request, caller=f"replay:{protocol}", parent_id=event["span_id"], step=step,
-                       replay_of=event["span_id"], protocol=protocol)
+                       replay_of=event["span_id"], protocol=protocol, **extra)
 
 
 def compare_tokens(a: list | None, b: list | None) -> dict:
@@ -80,24 +113,41 @@ def compare_tokens(a: list | None, b: list | None) -> dict:
             "max_abs_dlogprob_any": max(d_any, default=0.0)}
 
 
-def compare(src: dict, rep: dict, blobs: BlobStore) -> dict:
-    """Compare a replayed llm_call event with its source event."""
+def compare(src: dict, rep: dict, blobs: BlobStore, lineage_source: dict | None = None,
+            lineage_replay: dict | None = None) -> list[dict]:
+    """Compare a replayed llm_call event with its source event: one row per decision of the source call. With the
+    two calls' lineage records (engine_audit.json), lineage_same says whether bitwise identity is predicted."""
     ta, tb = load_tokens(src, blobs), load_tokens(rep, blobs)
-    text_a = (src.get("output") or {}).get("text")
-    text_b = (rep.get("output") or {}).get("text")
+    out_a, out_b = src.get("output") or {}, rep.get("output") or {}
+    text_a, text_b = out_a.get("text"), out_b.get("text")
+    known = all(x is not None and not x.get("uncertain") for x in (lineage_source, lineage_replay))
     row = {"source_span": src["span_id"], "replay_span": rep["span_id"], "protocol": rep.get("protocol"),
            "same_text": text_a == text_b,
            "path_source": (src.get("engine") or {}).get("path_class"),
-           "path_replay": (rep.get("engine") or {}).get("path_class"), **compare_tokens(ta, tb)}
+           "path_replay": (rep.get("engine") or {}).get("path_class"),
+           "lineage_source": (lineage_source or {}).get("canonical"),
+           "lineage_replay": (lineage_replay or {}).get("canonical"),
+           "lineage_same": lineage_source["fingerprint"] == lineage_replay["fingerprint"] if known else None,
+           **compare_tokens(ta, tb)}
     parser = parser_from_spec(src.get("decision_spec")) or decision_parser(src.get("caller"))
-    if parser and text_a:
-        for d in parser(text_a):
-            ma = decision_margin(ta, text_a, d["value"], d.get("json_key"))
-            db = parser(text_b or "")
-            vb = next((x["value"] for x in db if x["key"] == d["key"]), None)
-            mb = decision_margin(tb, text_b, vb, d.get("json_key")) if vb is not None else {"margin": None}
-            row.update({"decision": d["value"], "decision_replay": vb, "decision_flipped": vb != d["value"],
-                        "margin_source": ma["margin"], "margin_replay": mb["margin"],
-                        "d_margin": None if ma["margin"] is None or mb["margin"] is None else mb["margin"] - ma["margin"]})
-            break  # one decision per call for now (the first the parser names)
-    return row
+    rows = []
+    if parser and (text_a or out_a.get("tool_calls")):
+        replayed = parser(out_b)
+        greedy_a = (src.get("decoding") or {}).get("temperature") == 0  # T=0: a top candidate not chosen was ruled out
+        greedy_b = (rep.get("decoding") or {}).get("temperature") == 0
+        for d in parser(out_a):
+            ma = decision_margin(ta, text_a, d["value"], decision=d, greedy=greedy_a)
+            db = next((x for x in replayed if x["key"] == d["key"]), None)
+            vb = None if db is None else db["value"]
+            mb = decision_margin(tb, text_b, vb, decision=db, greedy=greedy_b) if db is not None else {"margin": None}
+            out = {**row, "decision_key": d["key"], "decision": d["value"], "decision_replay": vb,
+                   "decision_flipped": vb != d["value"], "margin_source": ma["margin"],
+                   "margin_replay": mb["margin"],
+                   "d_margin": None if ma["margin"] is None or mb["margin"] is None else mb["margin"] - ma["margin"]}
+            if rep.get("overrides"):  # resampling: how likely the replay's sampler was to reproduce the source
+                params = sampler.effective(rep.get("decoding"), sampler.endpoint_of(rep.get("transport"),
+                                                                                    rep.get("endpoint")))
+                out.update(overrides=rep["overrides"], sampling_change=out["decision_flipped"],
+                           p_path_source=sampler.p_path(ta, ma.get("end"), params)["p"])
+            rows.append(out)
+    return rows or [row]

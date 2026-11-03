@@ -24,8 +24,9 @@ def _blob_refs(x):
 def check_run(run_dir: str | Path) -> dict:
     """{"problems": [...], "counts": {...}}. No problems means: every process starts with a run_header, sequence
     numbers are contiguous, every blob exists, the driver ended with run_end, no call left the machine, the
-    engine matched env/engine-lock.json, and (when the run was audited) the server log shows no foreign
-    requests, no unlogged calls, no truncation and the requested temperatures."""
+    engine matched env/engine-lock.json, (when the run was audited) the server log shows no foreign requests,
+    no unlogged calls, no truncation and the requested sampler settings, and T=0 calls with the same input and
+    lineage have identical logprobs."""
     run_dir = Path(run_dir)
     events = read_events(run_dir)
     if not events:
@@ -63,5 +64,10 @@ def check_run(run_dir: str | Path) -> dict:
     if audit:
         from ..engine.audit import audit_problems
         problems += audit_problems(audit)
+    if (run_dir / "engine_audit.json").exists():  # same input and lineage at T=0 must give the same logprobs
+        from ..engine.lineage import check as lineage_check
+        for v in lineage_check([run_dir])["violations"]:
+            problems.append(f"lineage: same lineage, different logprobs: {[c['span_id'] for c in v['calls']]} "
+                            f"({v['calls'][0]['lineage']})")
     return {"run_dir": str(run_dir), "problems": problems, "counts": counts, "failed_llm_calls": failed,
             "processes": sorted(by_proc), "audited": bool(audit) and "unavailable" not in (audit or {})}

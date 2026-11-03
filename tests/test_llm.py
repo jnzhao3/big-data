@@ -60,7 +60,7 @@ def test_client_builds_requests_and_logs_lossless_calls(tmp_path, server, transp
     assert res.text == '{"target": "gender"}' and res.token_logprobs and res.span_id == "driver:1"
     log.close()
     ev = next(e for e in read_events(tmp_path / "r") if e["type"] == "llm_call")
-    assert ev["llm_schema"] == "hbench.llm_call/2" and ev["transport"] == transport and ev["step"] == 3
+    assert ev["llm_schema"] == "hbench.llm_call/3" and ev["transport"] == transport and ev["step"] == 3
     assert log.blobs.get(ev["request_raw"]) == sent                       # exact bytes sent are recoverable
     assert log.blobs.get(ev["response_raw"]) == (NATIVE if transport == "ollama" else V1)["response"]
     assert log.blobs.get(ev["token_logprobs"]) == res.token_logprobs
@@ -129,7 +129,8 @@ def test_litellm_callback_writes_the_same_schema(tmp_path):
         srv.shutdown()
     calls = {e["transport"]: e for e in read_events(tmp_path / "r") if e["type"] == "llm_call"}
     o, oc = calls["litellm/openai"], calls["litellm/ollama_chat"]
-    assert o["llm_schema"] == "hbench.llm_call/2" and o["parent_id"] == "driver:7" and o["step"] == 3
+    assert o["llm_schema"] == "hbench.llm_call/3" and o["parent_id"] == "driver:7" and o["step"] == 3
+    assert o["prompt_sha256"] and o["prompt_sha256"] != o["input_sha256"]
     assert o["output"]["text"] == '{"target": "gender"}' and o["engine"]["cached_tokens"] == 57
     assert log.blobs.get(o["token_logprobs"]) and o["cloud_call"] is False
     sent = log.blobs.get(o["request_raw"])  # what actually went out: the openai route keeps the tool call
@@ -172,3 +173,53 @@ def test_is_local():
     from hbench.runlog.litellm_cb import is_local
     assert is_local("http://127.0.0.1:11434/v1", "openai") and is_local(None, "ollama_chat")
     assert not is_local(None, "openai") and not is_local("https://api.openai.com/v1", "openai")
+
+
+TOOL = json.loads((Path(__file__).parent / "fixtures" / "probe3_tool_call.json").read_text())
+
+
+def test_tool_call_arguments_are_parsed_on_both_transports():
+    a = normalize_native(TOOL["ollama"]["request"], TOOL["ollama"]["response"])["output"]["tool_calls"]
+    b = normalize_openai(TOOL["openai_v1"]["request"], TOOL["openai_v1"]["response"])["output"]["tool_calls"]
+    assert a == b == [{"name": "list_target_columns", "arguments": {"source_column": "Tumor_Size_cm"}}]
+    bad = normalize_openai({}, {"choices": [{"message": {"tool_calls": [{"function": {"name": "f", "arguments": "{oops"}}]}}]})
+    assert bad["output"]["tool_calls"] == [{"name": "f", "arguments": "{oops", "arguments_invalid": True}]
+
+
+def test_same_tool_call_hashes_the_same_on_both_transports(tmp_path):
+    from hbench.llm.normalize import NORMALIZERS
+    from hbench.llm.record import record_llm_call
+    log = RunLog.create(tmp_path, "e0", "t", "clark", run_id="r")
+    for t in ("ollama", "openai_v1"):
+        fx = TOOL[t]
+        record_llm_call(log, caller="x", transport=t, endpoint=None, api_base="http://localhost:11434",
+                        model="qwen2.5:14b", request=fx["request"], response=fx["response"],
+                        normalized=NORMALIZERS[t](fx["request"], fx["response"]), latency_s=0.1)
+    log.close()
+    a, b = [e for e in read_events(tmp_path / "r") if e["type"] == "llm_call"]
+    assert a["output_sha256"] == b["output_sha256"]
+    assert TOOL["ollama"]["logged_output_sha256"] != TOOL["openai_v1"]["logged_output_sha256"]  # v2 hashed them apart
+
+
+def test_prompt_sha256_ignores_decoding(tmp_path, server):
+    log = RunLog.create(tmp_path, "e0", "t", "clark", run_id="r")
+    c = LLMClient(log, "m", base=server)
+    msgs = [{"role": "user", "content": "q"}]
+    r0 = c.chat(msgs, caller="x", temperature=0)
+    r1 = c.chat(msgs, caller="x", temperature=0.8, seed=3)
+    r2 = c.chat(msgs, caller="x", temperature=0, format="json")
+    log.close()
+    a, b, f = [e for e in read_events(tmp_path / "r") if e["type"] == "llm_call"]
+    assert a["llm_schema"] == "hbench.llm_call/3"
+    assert a["prompt_sha256"] == b["prompt_sha256"] == r0.prompt_sha256 == r1.prompt_sha256
+    assert a["input_sha256"] != b["input_sha256"]          # the generation key still includes decoding
+    assert f["prompt_sha256"] != a["prompt_sha256"] == r0.prompt_sha256 != r2.prompt_sha256  # format changes the prompt
+
+
+def test_prompt_sha256_includes_think(tmp_path, server):
+    log = RunLog.create(tmp_path, "e0", "t", "clark", run_id="r")
+    c = LLMClient(log, "m", base=server)
+    a = c.chat([{"role": "user", "content": "q"}], caller="x", temperature=0, think=True)
+    b = c.chat([{"role": "user", "content": "q"}], caller="x", temperature=0, think=False)
+    log.close()
+    assert a.prompt_sha256 != b.prompt_sha256  # thinking changes what the model is shown

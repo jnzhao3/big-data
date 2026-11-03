@@ -35,7 +35,8 @@ The Python lock does not cover Ollama, yet the engine changes outputs. `env/engi
 - the Ollama version (0.40.0);
 - the digests and chat templates of the qwen models;
 - the server configuration (one parallel slot, flash attention, q8_0 KV cache, 8 GiB prompt cache);
-- the runner's invariant flags.
+- the runner's invariant flags;
+- `sampler_defaults`: what `/api/chat` and `/v1` use for sampler settings a request leaves out. Every engine audit compares each call's effective settings with them.
 
 Run Ollama as the Homebrew service: `brew install ollama`, then `brew services start ollama`. Its service definition does two things the lock relies on:
 - it sets `OLLAMA_FLASH_ATTENTION=1` and `OLLAMA_KV_CACHE_TYPE=q8_0`;

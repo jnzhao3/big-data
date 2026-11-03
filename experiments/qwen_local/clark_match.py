@@ -4,12 +4,14 @@ older GDC_new groundtruth.csv.
 
 Usage: python -I clark_match.py --model qwen2.5:14b --run 1 [--mode shortlist|full] [--study clark] [--k 20]
        [--think] [--temperature T] [--seed S] [--transport ollama|openai_v1] [--num-ctx 32768] [--top-logprobs 5]
-       [--engine-protocol natural|cold] [--gt gdc-sm|old] [--data-root <datasets>] [--out-dir <results>]
+       [--engine-protocol natural|cold_start|cold] [--gt gdc-sm|old] [--data-root <datasets>] [--out-dir <results>]
+       [--raw-dir <run logs>]
        [--rescore <dir with an earlier run's CSV>]   # reuse its predictions, no model calls
 
 Outputs in --out-dir (never overwritten): <tag>.csv and a line in summary.jsonl, as before. Live runs also
-write raw/<run_id>/: the run log (every call with raw request/response and token logprobs), predictions.jsonl
-(with the shown candidates and each decision's margin), the hbench scores, and engine_audit.json.
+write <raw-dir>/<run_id>/ (default $HBENCH_RAW or ~/hbench_raw, outside the repo): the run log (every call with
+raw request/response and token logprobs), predictions.jsonl (with the shown candidates and each decision's
+evidence), the hbench scores, and engine_audit.json (with each call's lineage).
 """
 import argparse, json, re, sys, time
 from difflib import SequenceMatcher
@@ -25,7 +27,7 @@ from hbench.decisions import evidence
 from hbench.design import make_condition
 from hbench.llm import LLMClient
 from hbench.predictions import sm_record, write_predictions
-from hbench.runlog.session import start_run
+from hbench.runlog.session import raw_root, start_run
 from hbench.score_sm import score_sm
 
 GT_VARIANT = {"gdc-sm": "gdc-sm", "old": "gdc-new-raw"}
@@ -37,6 +39,7 @@ ap.add_argument("--data-root", default=None, help="benchmark data root (default:
 ap.add_argument("--gt", choices=["gdc-sm", "old"], default="gdc-sm",
                 help="gdc-sm = GDC-SM v1.0 (259 pairs, n:m); old = GDC_new/<study>/groundtruth.csv (197 rows)")
 ap.add_argument("--out-dir", default=HERE / "results")
+ap.add_argument("--raw-dir", default=None, help="run logs (default: $HBENCH_RAW or ~/hbench_raw, outside the repo)")
 ap.add_argument("--rescore", default=None, help="folder with an earlier run's CSV (same tag): rescore its predictions")
 ap.add_argument("--run", type=int, default=1)
 ap.add_argument("--study", default="clark")
@@ -48,8 +51,9 @@ ap.add_argument("--seed", type=int, default=None, help="Ollama sampling seed (un
 ap.add_argument("--num-ctx", type=int, default=32768, help="runs before E0 v2 used 16384")
 ap.add_argument("--transport", choices=["ollama", "openai_v1"], default="ollama")
 ap.add_argument("--top-logprobs", type=int, default=5, help="0 = do not request logprobs")
-ap.add_argument("--engine-protocol", choices=["natural", "cold"], default="natural",
-                help="cold = unload the model before every call (full recompute, empty prompt cache)")
+ap.add_argument("--engine-protocol", choices=["natural", "cold_start", "cold"], default="natural",
+                help="cold_start = unload the model once before the run (every repeat starts from the same state); "
+                     "cold = before every call (full recompute each time, slow)")
 args = ap.parse_args()
 
 data = Data(args.data_root) if args.data_root else Data(default_root())
@@ -123,7 +127,8 @@ else:
         engine={"transport": args.transport, "num_ctx": args.num_ctx, "protocol": args.engine_protocol,
                 "top_logprobs": args.top_logprobs or None},
         data={"study": args.study}, replicate=args.run)
-    log = start_run(out / "raw", "qwen_local", condition, task=dict(study=args.study, kind="sm"),
+    log = start_run(Path(args.raw_dir) if args.raw_dir else raw_root(), "qwen_local", condition,
+                    task=dict(study=args.study, kind="sm"),
                     models=[args.model], prompts={"full": FULL_PROMPT, "shortlist": PROMPT}, data=data, tag=tag)
     run_id = log.run_id
     client = LLMClient(log, args.model, transport=args.transport, num_ctx=args.num_ctx,
@@ -142,8 +147,6 @@ for i, col in enumerate(src.columns):
         else:
             cand_txt = "\n".join(f"- {c}: {samples(tgt[c], 4)}" for c in cands)
             prompt = PROMPT.format(col=col, vals=samples(src[col]), cands=cand_txt)
-        if args.engine_protocol == "cold":
-            client.unload()
         res = client.chat([{"role": "user", "content": prompt}], caller=CALLER, step=i, format="json",
                           decision=DECISION)
         raw, dt = res.text or "", res.latency_s
@@ -156,7 +159,8 @@ for i, col in enumerate(src.columns):
         pred, reason, status = "", raw[:200], "invalid_json"
     ev = None if prior is not None else evidence(res.span_id, res.token_logprobs, raw,
                                                  emitted if isinstance(emitted, str) else None, json_key="target",
-                                                 temperature=args.temperature)
+                                                 temperature=args.temperature, sampler_params=log.effective_decoding,
+                                                 grammar=True, prompt_sha256=res.prompt_sha256)  # format=json
     records.append(sm_record(run_id, args.study, col, [] if pred in ("", "NONE") else [pred],
                              shown="*" if args.mode == "full" else cands,
                              status="invalid_output" if status == "invalid_json" else "ok",

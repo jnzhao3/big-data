@@ -54,7 +54,7 @@ def test_audit_run_end_to_end(tmp_path):
     assert len(summary["sampler_mismatches"]) == 1          # we asked for 0.5, the server ran 0.8
     assert summary["ram_restores"] == ["driver:9"] and summary["runner_starts"] == 1
     assert (log.run_dir / "engine_audit.json").exists()
-    assert audit_problems(summary) == ["1 call(s) ran at a temperature other than requested"]
+    assert audit_problems(summary) == ["1 call(s) ran with sampler settings other than requested (temp)"]
     missing = audit_run(log.run_dir, server_log=str(tmp_path / "missing.log"))
     assert "unavailable" in missing and audit_problems(missing)[0].startswith("engine audit not possible")
 
@@ -112,3 +112,43 @@ def test_ollama_lease_is_exclusive(tmp_path):
                 pass
     with ollama_lease("third", path=path):
         pass
+
+
+def test_audit_compares_every_sampler_setting(tmp_path):
+    shutil.copy(FX / "ollama_server_window.log", tmp_path / "server.log")
+    log = RunLog.create(tmp_path / "raw", "e1", "t", "clark", run_id="r")
+    log.emit("run_header", engine={"server_log": {"path": str(tmp_path / "server.log"), "offset": 0}})
+    plan = [(2741, "openai_v1", 0.0)] * 2 + [(42, "openai_v1", 0.0)] + [(42, "ollama", 0.8)] * 4 + [(2741, "ollama", 0.0)] * 4
+    for i, (n, transport, t) in enumerate(plan):
+        dec = {"temperature": t, **({"top_p": 0.95} if i == 8 else {})}  # stated, but the server ran 0.9
+        log.emit("llm_call", api_base="http://localhost:11434", transport=transport, engine={"prompt_tokens": n},
+                 response_raw={"blob": "sha256:00", "bytes": 1}, decoding=dec)
+    s = audit_run(log.run_dir)
+    assert [(m["span_id"], m["key"], m["requested"], m["effective"]) for m in s["sampler_mismatches"]] == [
+        ("driver:10", "top_p", 0.95, 0.9)]  # defaults of both endpoints (top_p 1.0 on /v1, 0.9 on /api/chat) match
+    assert audit_problems(s) == ["1 call(s) ran with sampler settings other than requested (top_p)"]
+
+
+def test_effective_decoding_in_header(tmp_path):
+    from hbench.runlog.session import start_run
+    cond = make_condition(method={"name": "m"}, model={"name": "qwen2.5:14b"}, decoding={"temperature": 0, "seed": 1},
+                          engine={"transport": "ollama"}, data={"study": "clark"})
+    log = start_run(tmp_path, "e0", cond, task={"kind": "sm"}, verify_data=False)
+    log.close()
+    from hbench.runlog import read_events
+    header = next(e for e in read_events(log.run_dir) if e["type"] == "run_header")
+    assert header["effective_decoding"] == {"temp": 0, "top_k": 40, "top_p": 0.9, "min_p": 0.0, "seed": 1}
+    assert log.effective_decoding == header["effective_decoding"]
+
+
+def test_audit_flags_sampler_stages_p_path_cannot_model(tmp_path):
+    text = LOG.replace("repeat_penalty = 1.000", "repeat_penalty = 1.100", 1)  # the first task's server params
+    (tmp_path / "server.log").write_text(text)
+    log = RunLog.create(tmp_path / "raw", "e1", "t", "clark", run_id="r")
+    log.emit("run_header", engine={"server_log": {"path": str(tmp_path / "server.log"), "offset": 0}})
+    for n in [2741, 2741, 42, 42, 42, 42, 42, 2741, 2741, 2741, 2741]:
+        log.emit("llm_call", api_base="http://localhost:11434", response_raw={"blob": "sha256:00", "bytes": 1},
+                 engine={"prompt_tokens": n}, decoding={"temperature": None})
+    s = audit_run(log.run_dir)
+    assert [m["span_id"] for m in s["sampler_unmodelled"]] == ["driver:2"]
+    assert any("not modelled" in p for p in audit_problems(s))

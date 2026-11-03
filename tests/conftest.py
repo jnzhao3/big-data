@@ -1,11 +1,20 @@
 import json
+import os
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 import pytest
 
-from hbench.data import REPO_ROOT, Data
+# Never take the real Ollama lease or read the real server log: an experiment may be running, and a test holding
+# its lease for a moment would make that experiment's next start_run fail. Set before hbench is imported, since
+# hbench.design and hbench.engine.snapshot read these once.
+_ISOLATED = Path(tempfile.mkdtemp(prefix="hbench-tests-"))
+os.environ["HBENCH_LEASE"] = str(_ISOLATED / "ollama.lock")
+os.environ["HBENCH_OLLAMA_LOG"] = str(_ISOLATED / "no-server.log")
+
+from hbench.data import REPO_ROOT, Data  # noqa: E402
 
 RESULTS = REPO_ROOT / "experiments" / "qwen_local" / "results"
 FX = Path(__file__).parent / "fixtures"

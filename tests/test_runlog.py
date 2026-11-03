@@ -106,3 +106,21 @@ def test_check_run_reports_audit_and_drift(tmp_path):
     probs = check_run(tmp_path / "run8")["problems"]
     assert any("engine-lock" in x for x in probs) and any("another client" in x for x in probs)
     assert any("truncated" in x for x in probs)
+
+
+def test_raw_root_is_outside_the_repo_by_default(monkeypatch, tmp_path):
+    from pathlib import Path
+    from hbench.runlog.session import raw_root
+    monkeypatch.delenv("HBENCH_RAW", raising=False)
+    assert raw_root() == Path.home() / "hbench_raw"
+    assert raw_root(tmp_path / "x") == tmp_path / "x"
+    monkeypatch.setenv("HBENCH_RAW", str(tmp_path / "env"))
+    assert raw_root(tmp_path / "x") == tmp_path / "env"   # the environment wins over a script's default
+
+
+def test_the_suite_never_touches_the_real_lease_or_server_log():
+    from pathlib import Path
+    from hbench import design
+    from hbench.engine import snapshot
+    assert design.LEASE_PATH != Path.home() / ".hbench" / "ollama.lock"   # a running experiment holds that one
+    assert snapshot.SERVER_LOG != "/opt/homebrew/var/log/ollama.log"

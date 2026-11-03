@@ -14,6 +14,7 @@ import pandas as pd
 
 from . import SCORING_VERSION
 from .data import SM_GT_VARIANTS, Data, sm_item_id
+from .decisions import evidence_columns
 from .normalize import NONE, canon_target_col
 from .studies import get_study
 
@@ -140,9 +141,7 @@ def score_sm_core(recs, source_columns, gold, target_names, study: str = "", ks=
 
 
 def _evidence_cols(r) -> dict:
-    """Decision evidence carried into item tables: the deciding call and how close the decision was."""
-    ev = (r or {}).get("evidence") or {}
-    return {"evidence_span": ev.get("span_id"), "margin": ev.get("margin"), "p_flip": ev.get("p_flip")}
+    return evidence_columns((r or {}).get("evidence"))
 
 
 def vida_pair_mrr(ranked: dict[str, list[str]], gold_pairs: list[tuple[str, str]]) -> float:

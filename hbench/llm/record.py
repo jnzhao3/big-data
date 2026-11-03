@@ -1,16 +1,27 @@
-"""The llm_call event (schema hbench.llm_call/2): raw payloads kept losslessly, normalized fields derived.
+"""The llm_call event (schema hbench.llm_call/3): raw payloads kept losslessly, normalized fields derived.
 
 Raw request and response are always stored as blobs, so any field a later analysis needs can be derived
 again without rerunning (`hbench llm rederive`). Messages are also stored one blob per message, so the
 history an agent resends at every step costs disk space once.
+
+/3 adds prompt_sha256 (the prompt without sampling settings) and parses tool-call arguments into objects on
+both transports. Readers accept /2 events, which lack prompt_sha256.
 """
 
 from __future__ import annotations
 
 from ..runlog.writer import RunLog, sha256_json
-from .normalize import NORMALIZERS, generation_key
+from .normalize import NORMALIZERS, generation_key, prompt_key
 
-LLM_CALL_SCHEMA = "hbench.llm_call/2"
+LLM_CALL_SCHEMA = "hbench.llm_call/3"
+
+
+def prompt_sha256(request: dict | None, decoding: dict | None) -> str | None:
+    request = request or {}
+    if not request.get("messages"):
+        return None
+    return sha256_json(prompt_key(request.get("model"), request.get("messages"), request.get("tools"),
+                                  (decoding or {}).get("format"), (decoding or {}).get("think")))
 
 
 def record_llm_call(log: RunLog, *, caller: str, transport: str, endpoint: str | None, api_base: str | None,
@@ -31,6 +42,7 @@ def record_llm_call(log: RunLog, *, caller: str, transport: str, endpoint: str |
         decoding=decoding, engine=normalized.get("engine"), output=output,
         token_logprobs=log.blobs.put(tokens) if tokens is not None else None,
         input_sha256=sha256_json(generation_key(model, messages, decoding)),
+        prompt_sha256=prompt_sha256(request, decoding),
         request_sha256=sha256_json(request) if request else None,
         output_sha256=None if output is None else sha256_json(
             {"text": output.get("text") or "", "tool_calls": output.get("tool_calls") or []}),

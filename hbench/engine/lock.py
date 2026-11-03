@@ -14,6 +14,9 @@ ENGINE_LOCK = Path(__file__).resolve().parents[2] / "env" / "engine-lock.json"
 # caller requested (e.g. qwen3.8:27b was last started with -c 16384 -b 512), so they are per-run covariates,
 # recorded in every run header's engine snapshot and in each call's decoding, not lockable configuration.
 LOCKED_RUNNER_FLAGS = ("np", "cache-type-k", "cache-type-v", "flash-attn", "context-shift", "keep", "chat-template")
+# sampler_defaults (what each endpoint uses for settings a request leaves out) is not in the snapshot: it was read
+# from the engine audit's per-call sampler params, and every audit compares calls against it. Regenerating the lock
+# keeps it (cmd_engine carries it over); check() ignores it.
 
 
 def lock_from_snapshot(snap: dict) -> dict:

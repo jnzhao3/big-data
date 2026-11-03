@@ -7,6 +7,7 @@ Prediction-level metrics need no ground truth, so they also cover unannotated co
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from math import comb
 
@@ -51,9 +52,10 @@ def fleiss_kappa(table) -> float:
     return float("nan") if p_e == 1 else float((p_bar - p_e) / (1 - p_e))
 
 
-def stability_report(long: pd.DataFrame) -> dict:
+def stability_report(long: pd.DataFrame, reference: pd.DataFrame | None = None, endpoint: str | None = None) -> dict:
     """Prediction flips, Fleiss' kappa, pass@k / pass^k and always/sometimes/never-correct counts.
-    Items missing from some runs are dropped (reported as n_items_incomplete)."""
+    Items missing from some runs are dropped (reported as n_items_incomplete). Item tables of runs at T>0 (with
+    p_path / greedy_path) also get sampling_check; reference and endpoint are passed on to it."""
     runs = sorted(long.run_id.unique())
     n_runs = len(runs)
     piv = long.pivot_table(index="item_id", columns="run_id", values="pred", aggfunc="first")
@@ -94,7 +96,47 @@ def stability_report(long: pd.DataFrame) -> dict:
         m = long.groupby("item_id")["margin"].min().dropna()
         out["margin_quantiles"] = {q: float(m.quantile(q)) for q in (0.1, 0.25, 0.5)}
         out["flips_by_margin"] = flips_by_margin(long)
+    if "p_path" in long and "greedy_path" in long and (long["greedy_path"].notna().any() or reference is not None):
+        out["sampling_check"] = sampling_check(long, reference, endpoint)
     return out
+
+
+SAMPLING_INTERVAL_NOTE = ("[sum 2P(1-P), sum 1-P^2] is a range for the pairwise change rate only when the tokens before "
+                          "each decision are fixed structure; with free text before the decision only the upper end holds")
+
+
+def sampling_check(long: pd.DataFrame, reference: pd.DataFrame | None = None, endpoint: str | None = None) -> dict:
+    """Do runs at T>0 change more than sampling allows? P is the probability that the sampler reproduces an
+    item's greedy path through the end of its decision: from a run whose path was greedy (greedy_path, p_path),
+    else from a T=0 reference run's item table matched by prompt_sha256 (its p_path under `endpoint`'s default
+    sampler). P only bounds the probability of the decision from below (other paths can reach the same decision),
+    so the check is one-sided: an item can change across n runs with probability at most 1 - P^n, and an alarm is
+    raised when more items changed than that bound allows (beyond three standard deviations)."""
+    ref = {}
+    if reference is not None and endpoint is not None and "prompt_sha256" in reference:
+        col = {"/api/chat": "p_path_api_chat", "/v1/chat/completions": "p_path_v1"}[endpoint]
+        ref = {k: float(v) for k, v in zip(reference["prompt_sha256"], pd.to_numeric(reference[col], errors="coerce"))
+               if isinstance(k, str) and k and not math.isnan(v)}
+    bounds, pairs, unchecked, observed = [], [], 0, 0
+    for _, g in long.groupby("item_id"):
+        p = None
+        greedy = g[(g["greedy_path"] == True) & g["p_path"].notna()] if "greedy_path" in g else g.iloc[:0]  # noqa: E712
+        if len(greedy):
+            p = float(greedy["p_path"].iloc[0])
+        elif ref and "prompt_sha256" in g:
+            p = next((ref[k] for k in g["prompt_sha256"] if k in ref), None)
+        if p is None:
+            unchecked += 1
+            continue
+        observed += int(g["pred"].nunique() > 1)
+        bounds.append(1 - p ** g["run_id"].nunique())
+        pairs.append((2 * p * (1 - p), 1 - p * p))
+    bound = sum(bounds)
+    sd = math.sqrt(sum(u * (1 - u) for u in bounds))
+    return {"n_checked": len(bounds), "n_unchecked": unchecked, "observed_changed": observed, "bound_expected": bound,
+            "alarm": observed > bound + 3 * sd,
+            "interval_pairwise": [sum(a for a, _ in pairs), sum(b for _, b in pairs)],
+            "interval_note": SAMPLING_INTERVAL_NOTE}
 
 
 MARGIN_BINS = (0.0, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, float("inf"))

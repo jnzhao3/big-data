@@ -140,10 +140,16 @@ def cmd_stability(a) -> int:
     long = pd.concat([_read_items(p) for p in a.items], ignore_index=True)
     long["correct"] = long["correct"].map(lambda x: None if x == "" else x == "True")
     long["margin"] = pd.to_numeric(long["margin"], errors="coerce") if "margin" in long else None
+    cols = ["run_id", "item_id", "pred", "correct", "margin"]
+    if "p_path" in long and "greedy_path" in long:  # item tables of runs at T>0 (evidence v2)
+        long["p_path"] = pd.to_numeric(long["p_path"], errors="coerce")
+        long["greedy_path"] = long["greedy_path"].map({"True": True, "False": False})
+        cols += ["p_path", "greedy_path"] + (["prompt_sha256"] if "prompt_sha256" in long else [])
+    reference = pd.read_csv(a.reference, dtype=str, keep_default_na=False) if a.reference else None
     report = {}
     for (kind, study, cid), g in long.groupby(["kind", "study", "condition_id"], dropna=False):
         key = f"{kind}:{study}" + (f":{cid}" if cid else "")
-        report[key] = stability_report(g[["run_id", "item_id", "pred", "correct", "margin"]])
+        report[key] = stability_report(g[cols], reference=reference, endpoint=a.endpoint)
     text = json.dumps(report, indent=1, default=str)
     if a.out:
         _write_new(Path(a.out), text + "\n", a.force)
@@ -160,6 +166,10 @@ def cmd_engine(a) -> int:
         return 0
     if a.action == "lock":
         lock = lock_from_snapshot(snap)
+        if ENGINE_LOCK.exists():  # recorded from audits, not from the snapshot
+            old = json.loads(ENGINE_LOCK.read_text())
+            if old.get("sampler_defaults"):
+                lock["sampler_defaults"] = old["sampler_defaults"]
         if a.write:
             _write_new(ENGINE_LOCK, json.dumps(lock, indent=1, sort_keys=True) + "\n", a.force)
             print(f"wrote {ENGINE_LOCK}")
@@ -182,9 +192,35 @@ def cmd_audit(a) -> int:
     return 1 if probs else 0
 
 
+def _parse_set(items) -> dict:
+    """--set key=value pairs; values are read as JSON (numbers), else kept as strings."""
+    out = {}
+    for item in items or []:
+        k, sep, v = item.partition("=")
+        if not sep or not k:
+            sys.exit(f"--set takes key=value, not {item!r}")
+        try:
+            out[k] = json.loads(v)
+        except json.JSONDecodeError:
+            out[k] = v
+    return out
+
+
+def _parse_seeds(text: str | None) -> list:
+    """"1-15" or "1,2,3" (or a mix); [None] when no seeds are given."""
+    if not text:
+        return [None]
+    out = []
+    for part in text.split(","):
+        lo, sep, hi = part.partition("-")
+        out += list(range(int(lo), int(hi) + 1)) if sep else [int(lo)]
+    return out
+
+
 def cmd_replay(a) -> int:
     from .design import make_condition
-    from .replay import client_for, compare, load_calls, replay_call
+    from .engine.lineage import _audit_rows
+    from .replay import _TRANSPORT, RUN_PROTOCOL, api_base, client_for, compare, load_calls, replay_call
     from .runlog.session import start_run
     from .runlog.writer import read_events
 
@@ -193,6 +229,8 @@ def cmd_replay(a) -> int:
     bad = [i for i in idx if not 0 <= i < len(calls)]
     if bad:
         sys.exit(f"call indices {bad} out of range: the run has {len(calls)} replayable calls")
+    if "cold_start" in a.protocol and idx != list(range(len(idx))):
+        sys.exit("cold_start replays a prefix of the run: indices must be 0..k (a gap would change the lineage)")
     calls = [calls[i] for i in idx]
     if not calls:
         sys.exit("no replayable llm_call events in that run")
@@ -200,38 +238,59 @@ def cmd_replay(a) -> int:
     src_cond = header.get("condition") or {}
     study = (src_cond.get("data") or {}).get("study") or (header.get("task") or {}).get("study") or "unknown"
     model = blobs.get(calls[0]["request_raw"]).get("model")
+    overrides, seeds = _parse_set(a.set), _parse_seeds(a.seeds)
+    if "cold_start" in a.protocol and a.repeat > 1 and seeds != [None]:
+        sys.exit("cold_start with --seeds runs one cold replay per seed; drop --repeat")
     rows = []
-    for protocol in a.protocol:
+    for protocol, seed, rep_run in [(p, s, r) for p in a.protocol for s in seeds
+                                    for r in (range(a.repeat) if p == "cold_start" else [None])]:
+        # each seed, and under cold_start each repeat, is one replicate of the replay condition: its own run, so
+        # every cold_start repeat really starts cold
+        ov = {**overrides, **({"seed": seed} if seed is not None else {})}
+        src_dec = calls[0].get("decoding") or {}
         cond = make_condition(
-            method={"name": "replay", "protocol": protocol, "source_run": Path(a.run_dir).name},
-            model={"name": model}, decoding={"temperature": (calls[0].get("decoding") or {}).get("temperature")},
-            engine={"transport": calls[0].get("transport"), "protocol": "cold" if protocol == "cold" else "natural"},
-            data={"study": study})
+            method={"name": "replay", "protocol": protocol, "source_run": Path(a.run_dir).name,
+                    **({"overrides": overrides} if overrides else {})},
+            model={"name": model},
+            decoding={"temperature": overrides.get("temperature", src_dec.get("temperature")),
+                      **{k: v for k, v in overrides.items() if k not in ("temperature", "seed")},
+                      **({"seed": "per_replicate"} if seed is not None else {})},
+            engine={"transport": _TRANSPORT.get(calls[0].get("transport"), calls[0].get("transport")),
+                    "protocol": RUN_PROTOCOL.get(protocol, "natural")},
+            data={"study": study}, replicate=seed if seed is not None else (rep_run or 0))
         log = start_run(Path(a.out), "replay", cond, task={"kind": "replay", "source_run": str(a.run_dir)},
-                        models=[model])
+                        models=[model], ollama_base=api_base(calls[0]))
         done = []
         try:
-            for rep in range(a.repeat):
+            for rep in (range(a.repeat) if rep_run is None else [rep_run]):
                 for i, ev in zip(idx, calls):
-                    res = replay_call(ev, blobs, client_for(ev, log), protocol, step=i)
+                    res = replay_call(ev, blobs, client_for(ev, log), protocol, step=i, overrides=ov or None)
                     done.append((rep, i, ev, res.span_id))
         finally:
             log.close()
         by_span = {e.get("span_id"): e for e in read_events(log.run_dir)}
         both = _Blobs(blobs, log.blobs)
-        mine = [{"protocol": protocol, "repeat": rep, "source_call": i, **compare(ev, by_span[span], both)}
-                for rep, i, ev, span in done]
+        lin_src, lin_rep = _audit_rows(Path(a.run_dir)), _audit_rows(log.run_dir)
+        mine = [{"protocol": protocol, "seed": seed, "repeat": rep, "source_call": i, **row}
+                for rep, i, ev, span in done
+                for row in compare(ev, by_span[span], both, lin_src.get(ev["span_id"]), lin_rep.get(span))]
         rows += mine
         pd.DataFrame(mine).to_csv(log.run_dir / "replay_compare.csv", index=False)
-        print(f"[{protocol}] run {log.run_dir}")
+        print(f"[{protocol}{'' if seed is None else f' seed {seed}'}] run {log.run_dir}")
     df = pd.DataFrame(rows)
     # calls without logprobs or without a decision leave these columns empty, so aggregate whatever is there
-    cols = [c for c in ("same_text", "same_tokens", "bitwise_same_logprobs", "decision_flipped") if c in df]
+    cols = [c for c in ("same_text", "same_tokens", "bitwise_same_logprobs", "decision_flipped", "lineage_same")
+            if c in df]
     df[cols] = df[cols].astype(float)
     agg = {**{c: "mean" for c in cols},
            **({"max_abs_dlogprob_chosen": "max"} if "max_abs_dlogprob_chosen" in df else {}),
            **({"d_margin": lambda x: x.abs().max()} if "d_margin" in df else {})}
     print(df.groupby("protocol").agg(agg).to_string())
+    if "p_path_source" in df:  # resampling: observed decision changes against what the source's logprobs predict
+        for protocol, g in df.groupby("protocol"):
+            p = pd.to_numeric(g["p_path_source"], errors="coerce")
+            print(f"[{protocol}] sampled decisions changed: {int(g['decision_flipped'].sum())} of {len(g)}; "
+                  f"expected at most {float((1 - p).sum()):.2f} (sum of 1 - P over {int(p.notna().sum())} with P)")
     return 0
 
 
@@ -247,6 +306,25 @@ class _Blobs:
             except FileNotFoundError:
                 continue
         raise FileNotFoundError(ref)
+
+
+def cmd_lineage(a) -> int:
+    from .engine import lineage
+
+    runs = lineage.run_dirs(a.paths)
+    if not runs:
+        sys.exit("no run folders found")
+    if a.action == "rebuild":
+        if not a.out_dir:
+            sys.exit("lineage rebuild needs --out-dir (the run folders are not modified)")
+        out = Path(a.out_dir)
+        for rd in runs:
+            s = lineage.rebuild(rd, out / f"{rd.name}.lineage.json")
+            print(f"{rd.name}: {json.dumps(s)}")
+        return 0
+    res = lineage.check(runs, a.lineage_dir)
+    print(json.dumps(res, indent=1))
+    return 1 if res["violations"] else 0
 
 
 def cmd_llm(a) -> int:
@@ -302,6 +380,9 @@ def main(argv=None) -> int:
 
     t = sub.add_parser("stability", help="RQ1 stability metrics from several runs' items CSVs")
     t.add_argument("items", nargs="+")
+    t.add_argument("--reference", default=None, help="items CSV of a T=0 run of the same prompts, for the sampling check")
+    t.add_argument("--endpoint", default=None, choices=["/api/chat", "/v1/chat/completions"],
+                   help="whose default sampler the runs used (with --reference)")
     t.add_argument("--out", default=None)
     t.add_argument("--force", action="store_true")
     t.set_defaults(func=cmd_stability)
@@ -319,11 +400,23 @@ def main(argv=None) -> int:
 
     rp = sub.add_parser("replay", help="replay a run's LLM calls under engine protocols and compare")
     rp.add_argument("run_dir")
-    rp.add_argument("--protocol", nargs="+", default=["as_is"], choices=["as_is", "cold", "resend", "after_unrelated"])
+    rp.add_argument("--protocol", nargs="+", default=["as_is"],
+                    choices=["as_is", "cold_start", "cold", "resend", "after_unrelated"])
     rp.add_argument("--calls", default=None, help="comma-separated call indices (default: all)")
     rp.add_argument("--repeat", type=int, default=1)
+    rp.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                    help="override a sampler setting (temperature, seed, top_p, top_k, min_p on /api/chat)")
+    rp.add_argument("--seeds", default=None, help="e.g. 1-15: one replay run per seed, replicates of one condition")
     rp.add_argument("--out", required=True, help="raw-results root for the replay runs")
     rp.set_defaults(func=cmd_replay)
+
+    ln = sub.add_parser("lineage", help="check that T=0 calls with the same input and lineage are bitwise identical, "
+                                        "or rebuild the lineage of runs audited before E0 v3")
+    ln.add_argument("action", choices=["check", "rebuild"])
+    ln.add_argument("paths", nargs="+", help="run folders or raw-results roots")
+    ln.add_argument("--lineage-dir", default=None, help="check: read <run>.lineage.json files written by rebuild")
+    ln.add_argument("--out-dir", default=None, help="rebuild: where to write <run>.lineage.json")
+    ln.set_defaults(func=cmd_lineage)
 
     ll = sub.add_parser("llm", help="re-derive normalized llm_call fields from stored raw payloads")
     ll.add_argument("action", choices=["rederive"])

@@ -13,7 +13,8 @@ Every method writes, or is adapted to, these records:
   Without it, a valid but unshown target cannot be told apart from a plain wrong one.
 - status: ok | invalid_output | error. Raw model output belongs in the run log, not here.
 - evidence (optional): {"span_id": the llm_call that decided it, "margin": logprob margin of the decision,
-  "runner_up": ..., "p_flip": ...} (see hbench.decisions). Scorers carry margin and span into item tables.
+  "margin_value", "margin_def", "runner_up", "p_path_default", ...} (see hbench.decisions). Scorers carry them
+  into item tables (decisions.evidence_columns).
 """
 
 from __future__ import annotations

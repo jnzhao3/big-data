@@ -29,7 +29,7 @@ from ..predictions import jsonable
 LOG_SCHEMA = "hbench.log/1"
 INLINE_LIMIT = 4096  # bytes of canonical JSON; larger field values go to the blob store
 EVENT_TYPES = ("run_header", "llm_call", "tool_call", "agent_step", "state_snapshot", "prediction_batch", "score",
-               "error", "note", "run_end")
+               "engine_action", "error", "note", "run_end")
 
 
 def utc_stamp() -> str:

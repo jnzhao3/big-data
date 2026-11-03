@@ -7,6 +7,10 @@
 Logprobs are requested by default (top_logprobs=5): they cost little and give every decision a margin.
 num_ctx defaults to 32768, the context /v1 gets for qwen2.5:14b, so both transports share one loaded runner
 instead of reloading the model whenever a caller asks for a different context.
+
+The client performs the per-call action of the run's engine protocol (hbench.design.PROTOCOLS): with a log
+opened by start_run under protocol "cold" it unloads the model before every call. Unloads are logged as
+engine_action events, so a run's log shows every change of engine state it caused.
 """
 
 from __future__ import annotations
@@ -19,7 +23,7 @@ from dataclasses import dataclass, field
 from ..runlog.ollama import DEFAULT_BASE
 from ..runlog.writer import RunLog
 from .normalize import NORMALIZERS
-from .record import record_llm_call
+from .record import prompt_sha256, record_llm_call
 
 ENDPOINTS = {"ollama": "/api/chat", "openai_v1": "/v1/chat/completions"}
 DEFAULT_NUM_CTX = 32768
@@ -40,27 +44,33 @@ class LLMResult:
     request: dict
     response: dict
     normalized: dict = field(repr=False)
+    prompt_sha256: str | None = None
 
 
 class LLMClient:
     def __init__(self, log: RunLog | None, model: str, transport: str = "ollama", base: str = DEFAULT_BASE,
                  decoding: dict | None = None, num_ctx: int | None = DEFAULT_NUM_CTX,
-                 top_logprobs: int | None = DEFAULT_TOP_LOGPROBS, timeout: float = 600.0):
+                 top_logprobs: int | None = DEFAULT_TOP_LOGPROBS, timeout: float = 600.0, per_call: str | None = None):
+        """per_call: the per-call engine action ("none" or "unload"); by default the one of the run's protocol
+        (the condition start_run stored on the log). Replays prepare the engine themselves and pass "none"."""
+        from ..design import protocol_actions
+
         if transport not in ENDPOINTS:
             raise ValueError(f"transport must be one of {sorted(ENDPOINTS)}")
         self.log, self.model, self.transport, self.base = log, model, transport, base.rstrip("/")
         self.decoding = dict(decoding or {})
         self.num_ctx, self.top_logprobs, self.timeout = num_ctx, top_logprobs, timeout
+        self.per_call = per_call or protocol_actions(getattr(log, "condition", None))[1]
 
     # ------------------------------------------------------------------ requests
 
     def build_request(self, messages, *, tools=None, format=None, **decoding) -> dict:
         """The exact JSON body for this transport. decoding keys: temperature, top_p, top_k, min_p, seed,
-        max_tokens, stop, repeat_penalty, think."""
+        max_tokens, stop, repeat_penalty, frequency_penalty, presence_penalty, think."""
         d = {**self.decoding, **decoding}
         if self.transport == "ollama":
-            options = {k: d[k] for k in ("temperature", "top_p", "top_k", "min_p", "seed", "stop", "repeat_penalty")
-                       if d.get(k) is not None}
+            options = {k: d[k] for k in ("temperature", "top_p", "top_k", "min_p", "seed", "stop", "repeat_penalty",
+                                         "frequency_penalty", "presence_penalty") if d.get(k) is not None}
             if d.get("max_tokens") is not None:
                 options["num_predict"] = d["max_tokens"]
             if self.num_ctx is not None:
@@ -72,8 +82,8 @@ class LLMClient:
                 body["think"] = d["think"]
         else:
             body = {"model": self.model, "messages": messages}
-            body.update({k: d[k] for k in ("temperature", "top_p", "top_k", "seed", "max_tokens", "stop")
-                         if d.get(k) is not None})
+            body.update({k: d[k] for k in ("temperature", "top_p", "top_k", "seed", "max_tokens", "stop",
+                                           "frequency_penalty", "presence_penalty") if d.get(k) is not None})
             if format == "json":
                 body["response_format"] = {"type": "json_object"}
             elif format is not None:
@@ -97,6 +107,8 @@ class LLMClient:
              **extra) -> LLMResult:
         """POST an exact body (also used by replay), log it as one llm_call, return the normalized result.
         Failed requests are logged with the error and re-raised."""
+        if self.per_call == "unload":
+            self.unload()
         endpoint = ENDPOINTS[self.transport]
         req = urllib.request.Request(self.base + endpoint, json.dumps(body).encode(),
                                      {"Content-Type": "application/json", "Authorization": "Bearer ollama"})
@@ -121,7 +133,8 @@ class LLMClient:
         return LLMResult(text=out["text"], tool_calls=out["tool_calls"], finish_reason=out["finish_reason"],
                          token_logprobs=normalized["token_logprobs"], prompt_tokens=eng["prompt_tokens"],
                          cached_tokens=eng["cached_tokens"], path_class=eng["path_class"], span_id=span_id,
-                         latency_s=latency, request=body, response=response, normalized=normalized)
+                         latency_s=latency, request=body, response=response, normalized=normalized,
+                         prompt_sha256=prompt_sha256(body, normalized["decoding"]))
 
     # ------------------------------------------------------------------ engine state helpers
 
@@ -134,13 +147,19 @@ class LLMClient:
         with urllib.request.urlopen(self.base + "/api/ps", timeout=10) as r:
             return [m.get("name") for m in json.load(r).get("models", [])]
 
-    def unload(self, wait_s: float = 30.0) -> bool:
+    def unload(self, wait_s: float = 30.0, protocol: str | None = None) -> bool:
         """Unload the model (keep_alive=0) and wait until /api/ps no longer lists it: the next call starts cold,
-        with an empty prompt cache. Not logged as an llm_call (it generates nothing)."""
+        with an empty prompt cache. Logged as an engine_action event (not an llm_call: it generates nothing)."""
+        t0 = time.time()
         self._post("/api/generate", {"model": self.model, "keep_alive": 0})
-        end = time.time() + wait_s
+        end, confirmed = t0 + wait_s, False
         while time.time() < end:
             if self.model not in self.loaded():
-                return True
+                confirmed = True
+                break
             time.sleep(0.25)
-        return False
+        if self.log is not None:
+            proto = protocol or ((getattr(self.log, "condition", None) or {}).get("engine") or {}).get("protocol")
+            self.log.emit("engine_action", action="unload", model=self.model, confirmed=confirmed,
+                          waited_s=round(time.time() - t0, 3), protocol=proto)
+        return confirmed

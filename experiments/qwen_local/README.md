@@ -23,7 +23,7 @@ against both. The predictions are unchanged; only the scoring is new. Conclusion
 | `magneto_ollama.py` | Runs Magneto (VIDA-NYU) with its LLM reranker pointed at local Ollama; scored with `hbench` against both ground truths |
 | `results/` | Original runs, scored against the old groundtruth when they were made |
 | `results/gdc_sm/` | The same clark predictions rescored against GDC-SM, plus Magneto reruns scored against both ground truths |
-| `results/raw/` | Not in git. One folder per new run: the `hbench` run log, `predictions.jsonl` and scores (see `hbench/README.md`) |
+| `results/raw/` | Not in git. Run folders made before E0 v3; newer runs go to `--raw-dir` (default `$HBENCH_RAW` or `~/hbench_raw`, outside the repo) |
 
 ## Setup
 
@@ -36,20 +36,27 @@ against both. The predictions are unchanged; only the scoring is new. Conclusion
    `magneto-python` 0.2.0 package that bdi-kit installs, so no separate clone or venv is needed.
 
 `clark_match.py` refuses to overwrite an existing `<tag>.csv`; use a new `--run` number or `--out-dir` for repeats.
-Every live run of either script writes a new `results/raw/<run_id>/` (never overwritten), which holds:
-- the run header: git commit, package versions, engine snapshot and drift, data manifest;
+Every live run of either script writes a new `<raw-dir>/<run_id>/` (never overwritten). The default raw dir is `$HBENCH_RAW` or `~/hbench_raw`, outside the repo, because Qwen's logprob candidates contain Chinese tokens. The folder holds:
+- the run header: git commit, package versions, engine snapshot and drift, data manifest, effective decoding;
 - every LLM call, with the raw request and response, token logprobs and cache reuse;
-- `predictions.jsonl`: each clark_match decision carries its margin, and each Magneto column links to its reranker call;
+- `predictions.jsonl`:
+  - each clark_match decision carries its evidence: the margin over every token up to the end of the decision, and the probability that each endpoint's default sampler reproduces it;
+  - each Magneto column links to its reranker call;
 - the scores;
-- `engine_audit.json`, which matches each call to the Ollama server log.
+- `engine_audit.json`, which matches each call to the Ollama server log, with the call's computation lineage.
 
 The CSV and `summary.jsonl` keep their old format. Check a run with `python -m hbench log validate <run_dir>`.
 
 Defaults changed with E0 v2 (2026-11-02):
 - clark_match uses `--num-ctx 32768` (before: 16384) and requests `--top-logprobs 5`;
 - `--transport openai_v1` sends the same requests through `/v1`;
-- `--engine-protocol cold` unloads the model before every call;
+- `--engine-protocol cold` unloads the model before every call (E0 v3 adds `cold_start`, below);
 - Magneto's reranker goes through LiteLLM's `openai/` route (`--llm openai/qwen2.5:14b`), because `ollama_chat/` cannot return logprobs.
+
+Changed with E0 v3 (2026-11-03):
+- run logs go to `--raw-dir`, default `$HBENCH_RAW` or `~/hbench_raw`, instead of `results/raw/`;
+- `--engine-protocol cold_start` (both scripts) unloads the model once before the run. Use it for repeated runs, so every repeat starts from the same engine state;
+- a decision's `margin` covers every token up to the end of the decision (before: the decision's own tokens). Evidence also carries the reproduction probability under each endpoint's default sampler; `p_flip` is gone.
 
 Earlier results used the old settings.
 

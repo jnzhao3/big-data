@@ -5,7 +5,7 @@
     ...                                   # any litellm.completion / acompletion in this process
     litellm_cb.uninstall(cb)
 
-Each call becomes an llm_call in the hbench.llm_call/2 schema (see hbench.llm). The request body actually sent
+Each call becomes an llm_call in the hbench.llm_call/3 schema (see hbench.llm). The request body actually sent
 (additional_args["complete_input_dict"]) is the raw request: routes rewrite messages, e.g. LiteLLM 1.82.6's
 ollama_chat/ route drops assistant tool_calls. Logprobs and cached-token counts are available only on routes
 that keep them (openai/ with logprobs=True); others list them under `unavailable`. Calls to a non-local

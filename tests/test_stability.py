@@ -88,3 +88,32 @@ def test_stability_cli_groups_items_by_the_run_headers_condition(tmp_path, capsy
     assert main(["stability", *paths]) == 0
     keys = list(json.loads(capsys.readouterr().out))
     assert len(keys) == 2 and all(k.startswith("sm:clark:") for k in keys)  # T=0 and T=0.8 are not pooled
+
+
+def _sampled(changes_a=False):
+    """4 runs at default temperature. a: P=1 (always greedy); b: P=0.5 (changes); c: P=0.9; d: never greedy."""
+    rows = []
+    for r in range(4):
+        rows += [dict(run_id=f"r{r}", item_id="a", pred="x" if not (changes_a and r) else "x2", p_path=1.0,
+                      greedy_path=True, prompt_sha256="pa"),
+                 dict(run_id=f"r{r}", item_id="b", pred="y" if r % 2 else "z", p_path=0.5 if r == 0 else 0.2,
+                      greedy_path=r == 0, prompt_sha256="pb"),
+                 dict(run_id=f"r{r}", item_id="c", pred="w" if not (changes_a and r) else "w2", p_path=0.9,
+                      greedy_path=True, prompt_sha256="pc"),
+                 dict(run_id=f"r{r}", item_id="d", pred="v" if r else "u", p_path=0.3, greedy_path=False,
+                      prompt_sha256="pd")]
+    return pd.DataFrame(rows).assign(correct=None, margin=None)
+
+
+def test_sampling_check_is_one_sided():
+    from hbench.stability import sampling_check
+    got = sampling_check(_sampled())
+    assert (got["n_checked"], got["n_unchecked"], got["observed_changed"]) == (3, 1, 1)
+    assert got["bound_expected"] == pytest.approx((1 - 0.5 ** 4) + (1 - 0.9 ** 4)) and got["alarm"] is False
+    assert got["interval_pairwise"][1] == pytest.approx((1 - 0.25) + (1 - 0.81))
+    hot = sampling_check(_sampled(changes_a=True))   # an item with P=1 changed: more change than sampling allows
+    assert hot["observed_changed"] == 3 and hot["alarm"] is True
+    ref = pd.DataFrame([{"prompt_sha256": "pd", "p_path_api_chat": 0.6, "p_path_v1": 0.4}])
+    with_ref = sampling_check(_sampled(), reference=ref, endpoint="/api/chat")
+    assert (with_ref["n_checked"], with_ref["n_unchecked"], with_ref["observed_changed"]) == (4, 0, 2)
+    assert "sampling_check" in stability_report(_sampled())

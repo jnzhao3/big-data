@@ -1,0 +1,149 @@
+{
+ "source": "E1 probe 3 (2026-11-03): tool loop on both transports, then cold, resend and as_is replays; lineage derived by hand from server counts",
+ "calls": [
+  {
+   "run": "84b9",
+   "caller": "probe:tool_loop",
+   "step": 0,
+   "transport": "ollama",
+   "task": 0,
+   "window_task_index": 0,
+   "n_tokens": 237,
+   "cached": 0,
+   "logprobs_sha256": "6db7d80de226c066fc6ee3cc4c81e929a855af9d9fec917969fc342c1d8dcb27",
+   "lineage": "B237"
+  },
+  {
+   "run": "84b9",
+   "caller": "probe:tool_loop",
+   "step": 1,
+   "transport": "ollama",
+   "task": 26,
+   "window_task_index": 1,
+   "n_tokens": 307,
+   "cached": 253,
+   "logprobs_sha256": "4bd44a1a9fe359abefaa74fd9496e4f47e0de88ac846e7a140f143316e5baa56",
+   "lineage": "B237 G16 B54"
+  },
+  {
+   "run": "8960",
+   "caller": "probe:tool_loop",
+   "step": 0,
+   "transport": "openai_v1",
+   "task": 40,
+   "window_task_index": 2,
+   "n_tokens": 237,
+   "cached": 236,
+   "logprobs_sha256": "4931f903676fb8c50cb8ac81437e5b263778c7f71696a7df2f88c1f3294c1b2d",
+   "lineage": "B236 S1"
+  },
+  {
+   "run": "8960",
+   "caller": "probe:tool_loop",
+   "step": 1,
+   "transport": "openai_v1",
+   "task": 66,
+   "window_task_index": 3,
+   "n_tokens": 307,
+   "cached": 253,
+   "logprobs_sha256": "a964bb15cd957d430fd5a20b66f8e643a666f86792f1f90b163425b121b08929",
+   "lineage": "B236 S1 G16 B54"
+  },
+  {
+   "run": "3296",
+   "caller": "replay:cold",
+   "step": 0,
+   "transport": "ollama",
+   "task": 0,
+   "window_task_index": 5,
+   "n_tokens": 237,
+   "cached": 0,
+   "logprobs_sha256": "6db7d80de226c066fc6ee3cc4c81e929a855af9d9fec917969fc342c1d8dcb27",
+   "lineage": "B237"
+  },
+  {
+   "run": "3296",
+   "caller": "replay:cold",
+   "step": 1,
+   "transport": "ollama",
+   "task": 0,
+   "window_task_index": 6,
+   "n_tokens": 307,
+   "cached": 0,
+   "logprobs_sha256": "c21cadc2d543016069b044123a860bf5e7b306c6271c251eb65fd6796eb4a48f",
+   "lineage": "B307"
+  },
+  {
+   "run": "7230",
+   "caller": "replay:pre",
+   "step": 0,
+   "transport": "ollama",
+   "task": 14,
+   "window_task_index": 7,
+   "n_tokens": 237,
+   "cached": 236,
+   "logprobs_sha256": "4931f903676fb8c50cb8ac81437e5b263778c7f71696a7df2f88c1f3294c1b2d",
+   "lineage": "B236 S1"
+  },
+  {
+   "run": "7230",
+   "caller": "replay:resend",
+   "step": 0,
+   "transport": "ollama",
+   "task": 40,
+   "window_task_index": 8,
+   "n_tokens": 237,
+   "cached": 236,
+   "logprobs_sha256": "4931f903676fb8c50cb8ac81437e5b263778c7f71696a7df2f88c1f3294c1b2d",
+   "lineage": "B236 S1"
+  },
+  {
+   "run": "7230",
+   "caller": "replay:pre",
+   "step": 1,
+   "transport": "ollama",
+   "task": 66,
+   "window_task_index": 9,
+   "n_tokens": 307,
+   "cached": 253,
+   "logprobs_sha256": "a964bb15cd957d430fd5a20b66f8e643a666f86792f1f90b163425b121b08929",
+   "lineage": "B236 S1 G16 B54"
+  },
+  {
+   "run": "7230",
+   "caller": "replay:resend",
+   "step": 1,
+   "transport": "ollama",
+   "task": 80,
+   "window_task_index": 10,
+   "n_tokens": 307,
+   "cached": 306,
+   "logprobs_sha256": "cc3abb8a704da6aac51d5ddb3471101a81b99937da2752dc4bdbcc071ca2083c",
+   "lineage": "B236 S1 G16 B53 S1"
+  },
+  {
+   "run": "0752",
+   "caller": "replay:as_is",
+   "step": 0,
+   "transport": "ollama",
+   "task": 94,
+   "window_task_index": 11,
+   "n_tokens": 237,
+   "cached": 236,
+   "logprobs_sha256": "4931f903676fb8c50cb8ac81437e5b263778c7f71696a7df2f88c1f3294c1b2d",
+   "lineage": "B236 S1"
+  },
+  {
+   "run": "0752",
+   "caller": "replay:as_is",
+   "step": 1,
+   "transport": "ollama",
+   "task": 120,
+   "window_task_index": 12,
+   "n_tokens": 307,
+   "cached": 253,
+   "logprobs_sha256": "a964bb15cd957d430fd5a20b66f8e643a666f86792f1f90b163425b121b08929",
+   "lineage": "B236 S1 G16 B54"
+  }
+ ]
+}

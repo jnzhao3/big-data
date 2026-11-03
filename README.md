@@ -55,7 +55,7 @@ Each run writes `predictions.jsonl`, one decision per line, in the `hbench.pred/
 
 - `targets: []` denotes no match. `shown` lists the candidates presented to the method; `"*"` denotes all 736 GDC columns.
 - Value-matching records use `"kind": "vm"` with `source_attribute`, `target_attribute` and `source_value`. See `hbench/README.md` for the full specification.
-- Raw logs go to `experiments/<experiment>/results/raw/`, which is not tracked; commit only summaries. Give each run a unique `run_id` and never overwrite earlier runs.
+- Raw logs go outside the repo, to `$HBENCH_RAW` or by default `~/hbench_raw`. Qwen's logprob candidates in them contain Chinese tokens. Commit only summaries. Give each run a unique `run_id` and never overwrite earlier runs.
 
 To validate and score a run:
 
@@ -70,5 +70,6 @@ python -m hbench score predictions.jsonl --gt gdc-sm
 - Run Ollama as the Homebrew service. `env/engine-lock.json` pins its version, models and settings; see `env/README.md`.
 - Log every call: use `hbench.llm.LLMClient`, or LiteLLM's `openai/` route with `hbench.runlog.litellm_cb`. The `ollama_chat/` route cannot return logprobs.
 - Open runs with `hbench.runlog.session.start_run` and check them with `python -m hbench log validate <run_dir>`.
+- State the engine protocol of repeated runs. `engine.protocol: "cold_start"` unloads the model before each run, so every replicate starts from the same engine state. At T=0, output depends on how each cached token was computed, and back-to-back repeats change that (see `hbench/README.md`).
 - BDI-Kit's LLM matchers default to the cloud model `openai/gpt-4o-mini`; specify an Ollama model for local runs.
 - BDI-Kit returns cached results for repeated calls. Pass `use_cache=False` or clear `~/.cache/bdikit/runs/` before each run.

@@ -3,13 +3,15 @@ Scores the same matches with hbench against GDC-SM (259 pairs, n:m) and the olde
 
 Usage (from repo root, shared env from env/): ~/venvs/harmonize/bin/python -I experiments/qwen_local/magneto_ollama.py
        [--llm openai/qwen2.5:14b] [--study clark] [--no-llm] [--temperature 0] [--seed S] [--run N]
-       [--top-logprobs 5] [--data-root <datasets>] [--out-dir <results>]
+       [--top-logprobs 5] [--engine-protocol natural|cold_start] [--data-root <datasets>] [--out-dir <results>]
+       [--raw-dir <run logs>]
 
 The reranker goes through LiteLLM's openai/ route to Ollama's /v1 by default: that route keeps logprobs and the
 cached-token count (ollama_chat/ rejects logprobs). Runs before E0 v2 used ollama_chat/.
-Each run writes <out-dir>/raw/<run_id>/: the run log (every reranker call with raw request/response),
-predictions.jsonl with the full ranking for every column, each column linked to its reranker call with the
-LLM's score gap, the hbench scores, and engine_audit.json. Nothing is overwritten.
+Each run writes <raw-dir>/<run_id>/ (default $HBENCH_RAW or ~/hbench_raw, outside the repo): the run log (every
+reranker call with raw request/response), predictions.jsonl with the full ranking for every column, each column
+linked to its reranker call with the LLM's score gap, the hbench scores, and engine_audit.json. Nothing is
+overwritten.
 """
 import argparse, json, re, sys, time, warnings
 from pathlib import Path
@@ -23,7 +25,7 @@ from hbench.adapters.magneto import from_magneto_matches
 from hbench.data import Data, default_root
 from hbench.design import make_condition
 from hbench.predictions import write_predictions
-from hbench.runlog.session import start_run
+from hbench.runlog.session import raw_root, start_run
 from hbench.runlog.writer import BlobStore, read_events
 from hbench.score_sm import score_sm
 from magneto import Magneto
@@ -37,8 +39,11 @@ ap.add_argument("--temperature", type=float, default=0.0)
 ap.add_argument("--seed", type=int, default=None)
 ap.add_argument("--top-logprobs", type=int, default=5, help="openai/ route only; 0 = do not request")
 ap.add_argument("--run", type=int, default=1, help="repeat index, recorded in the condition")
+ap.add_argument("--engine-protocol", choices=["natural", "cold_start"], default="natural",
+                help="cold_start = unload the model once before the run (LiteLLM routes allow no per-call action)")
 ap.add_argument("--data-root", default=None, help="benchmark data root (default: $HBENCH_DATA or <repo>/datasets)")
 ap.add_argument("--out-dir", default=HERE / "results")
+ap.add_argument("--raw-dir", default=None, help="run logs (default: $HBENCH_RAW or ~/hbench_raw, outside the repo)")
 args = ap.parse_args()
 
 data = Data(args.data_root) if args.data_root else Data(default_root())
@@ -65,10 +70,11 @@ condition = make_condition(
     method={"name": "magneto", "embedding_model": "mpnet", "topk": 20, "reranker": not args.no_llm},
     model={"name": "none" if args.no_llm else model},
     decoding={"temperature": None if args.no_llm else args.temperature, "seed": args.seed},
-    engine={"transport": "none" if args.no_llm else f"litellm/{route}", "protocol": "natural",
+    engine={"transport": "none" if args.no_llm else f"litellm/{route}", "protocol": args.engine_protocol,
             "top_logprobs": args.top_logprobs if route == "openai" and not args.no_llm else None},
     data={"study": args.study}, replicate=args.run)
-log = start_run(Path(args.out_dir) / "raw", "qwen_local", condition, task=dict(study=args.study, kind="sm"),
+log = start_run(Path(args.raw_dir) if args.raw_dir else raw_root(), "qwen_local", condition,
+                task=dict(study=args.study, kind="sm"),
                 models=[] if args.no_llm else [model], data=data,
                 llm=None if args.no_llm else dict(model=args.llm, **{k: v for k, v in llm_kwargs.items() if k != "api_key"}))
 cb = None

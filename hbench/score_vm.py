@@ -19,6 +19,7 @@ import pandas as pd
 
 from . import SCORING_VERSION
 from .data import VM_GT_ID, Data
+from .decisions import evidence_columns
 from .normalize import NONE, SM_NONE_TOKENS, canon_value, lenient_value, to_decimal
 from .studies import get_study
 
@@ -43,8 +44,7 @@ def score_vm(records, data: Data, study, mode: str = "oracle", age_tol_days: flo
 
 
 def _evidence_cols(r) -> dict:
-    ev = (r or {}).get("evidence") or {}
-    return {"evidence_span": ev.get("span_id"), "margin": ev.get("margin"), "p_flip": ev.get("p_flip")}
+    return evidence_columns((r or {}).get("evidence"))
 
 
 def classify_age_error(pred: Decimal, gold: Decimal) -> str:

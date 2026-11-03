@@ -33,7 +33,7 @@ def test_compare_reports_decision_margin_shift(tmp_path):
         span = log.emit("llm_call", caller="method:pilot", output={"text": rec["content"]},
                         token_logprobs=log.blobs.put(toks), engine={"path_class": "x"})
         events.append(next(e for e in read_events(tmp_path / "r") if e["span_id"] == span))
-    row = compare(events[0], events[1], log.blobs)
+    (row,) = compare(events[0], events[1], log.blobs)
     assert row["same_text"] and row["same_tokens"] and not row["bitwise_same_logprobs"]
     assert row["decision"] == "bcr_id" and row["decision_flipped"] is False
     assert round(row["margin_source"], 4) == 0.1266 and round(row["d_margin"], 4) == -0.0070
@@ -49,7 +49,7 @@ def test_decision_spec_in_the_log_needs_no_registered_parser(tmp_path):
                         decision_spec={"type": "json_field", "field": "target"},
                         token_logprobs=log.blobs.put(toks), engine={"path_class": "x"})
         events.append(next(e for e in read_events(tmp_path / "r") if e["span_id"] == span))
-    row = compare(events[0], events[1], log.blobs)
+    (row,) = compare(events[0], events[1], log.blobs)
     assert row["decision"] == "bcr_id" and round(row["d_margin"], 4) == -0.0070
 
 
@@ -77,8 +77,65 @@ def test_replay_resends_the_exact_logged_request(tmp_path):
         rep.close()
         ev = next(e for e in read_events(tmp_path / "raw" / "rep") if e["span_id"] == res.span_id)
         assert ev["replay_of"] == calls[0]["span_id"] and ev["protocol"] == "resend" and ev["caller"] == "replay:resend"
-        row = compare(calls[0], ev, blobs)
+        (row,) = compare(calls[0], ev, blobs)
         assert row["bitwise_same_logprobs"]  # mock server returns the same payload
         assert row["decision"] == "gender" and row["decision_flipped"] is False and row["d_margin"] == 0.0
     finally:
         srv.shutdown()
+
+
+TOOL = json.loads((Path(__file__).parent / "fixtures" / "probe3_tool_call.json").read_text())
+
+
+def test_compare_reports_every_decision(tmp_path):
+    from hbench.llm.normalize import normalize_native
+    n = normalize_native(TOOL["ollama"]["request"], TOOL["ollama"]["response"])
+    log = RunLog.create(tmp_path, "e1", "t", "clark", run_id="r")
+    spec = [{"type": "tool_call", "field": "name"}, {"type": "tool_call", "field": "arguments.source_column"}]
+    spans = [log.emit("llm_call", caller="probe:tool_loop", output=n["output"], decision_spec=spec,
+                      token_logprobs=log.blobs.put(n["token_logprobs"]), engine={"path_class": "x"}) for _ in range(2)]
+    ev = {e["span_id"]: e for e in read_events(tmp_path / "r")}
+    rows = compare(ev[spans[0]], ev[spans[1]], log.blobs)
+    assert [r["decision_key"] for r in rows] == ["name", "arguments.source_column"]
+    assert [r["decision"] for r in rows] == ["list_target_columns", "Tumor_Size_cm"]
+    assert not any(r["decision_flipped"] for r in rows) and all(r["bitwise_same_logprobs"] for r in rows)
+    # the prefix margin of both decisions is the first token: <tool_call> (call a tool at all) vs a text token
+    assert [round(r["margin_source"], 2) for r in rows] == [5.71, 5.71]
+
+
+def test_compare_treats_sampled_calls_as_not_greedy(tmp_path):
+    log = RunLog.create(tmp_path, "e1", "t", "clark", run_id="r")
+    toks = [["{\"target\": \"", -0.01, [["{\"target\": \"", -0.01], ["x", -9.0]]],
+            ["b", -0.9, [["a", -0.6], ["b", -0.9], ["c", -3.0]]], ["\"}", -0.01, [["\"}", -0.01], ["x", -9.0]]]]
+    spans = [log.emit("llm_call", caller="m", output={"text": '{"target": "b"}'}, decoding={"temperature": t},
+                      decision_spec={"type": "json_field", "field": "target"}, token_logprobs=log.blobs.put(toks),
+                      engine={"path_class": "x"}) for t in (0.8, 0)]
+    ev = {e["span_id"]: e for e in read_events(tmp_path / "r")}
+    (hot,) = compare(ev[spans[0]], ev[spans[0]], log.blobs)
+    (cold,) = compare(ev[spans[1]], ev[spans[1]], log.blobs)
+    assert round(hot["margin_source"], 2) == -0.30   # sampled below the top candidate: a negative gap, no constraint
+    assert round(cold["margin_source"], 2) == 2.10   # at T=0 the top candidate must have been ruled out
+
+
+def test_compare_says_whether_the_lineages_match(tmp_path):
+    log = RunLog.create(tmp_path, "e1", "t", "clark", run_id="r")
+    span = log.emit("llm_call", caller="m", output={"text": "x"}, token_logprobs=log.blobs.put([["x", -0.1, []]]))
+    ev = next(e for e in read_events(tmp_path / "r") if e["span_id"] == span)
+    a, b = {"fingerprint": "f1", "canonical": "B10", "uncertain": []}, {"fingerprint": "f2", "canonical": "B9 S1", "uncertain": []}
+    assert compare(ev, ev, log.blobs, a, dict(a))[0]["lineage_same"] is True
+    (row,) = compare(ev, ev, log.blobs, a, b)
+    assert row["lineage_same"] is False and (row["lineage_source"], row["lineage_replay"]) == ("B10", "B9 S1")
+    assert compare(ev, ev, log.blobs, a, {**b, "uncertain": ["unknown start"]})[0]["lineage_same"] is None
+    assert compare(ev, ev, log.blobs)[0]["lineage_same"] is None  # runs audited before lineage existed
+
+
+def test_compare_keeps_two_tool_calls_apart(tmp_path):
+    log = RunLog.create(tmp_path, "e1", "t", "clark", run_id="r")
+    spec = [{"type": "tool_call", "field": "name"}, {"type": "tool_call", "field": "name", "index": 1}]
+    outs = [{"text": "", "tool_calls": [{"name": "a", "arguments": {}}, {"name": "b", "arguments": {}}]},
+            {"text": "", "tool_calls": [{"name": "b", "arguments": {}}, {"name": "a", "arguments": {}}]}]
+    spans = [log.emit("llm_call", caller="m", output=o, decision_spec=spec, engine={}) for o in outs]
+    ev = {e["span_id"]: e for e in read_events(tmp_path / "r")}
+    rows = compare(ev[spans[0]], ev[spans[1]], log.blobs)
+    assert [(r["decision_key"], r["decision"], r["decision_replay"], r["decision_flipped"]) for r in rows] == [
+        ("name", "a", "b", True), ("name@1", "b", "a", True)]

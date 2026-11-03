@@ -59,6 +59,20 @@
    "model_blob_sha256": "3e4cb14174460404e7a233e531675303b2fbf7749c02f91864fe311ab6344e4f"
   }
  },
+ "sampler_defaults": {
+  "/api/chat": {
+   "min_p": 0.0,
+   "temp": 0.8,
+   "top_k": 40,
+   "top_p": 0.9
+  },
+  "/v1/chat/completions": {
+   "min_p": 0.0,
+   "temp": 1.0,
+   "top_k": 40,
+   "top_p": 1.0
+  }
+ },
  "server_config": {
   "OLLAMA_CONTEXT_LENGTH": "0",
   "OLLAMA_FLASH_ATTENTION": "true",
