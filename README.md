@@ -20,6 +20,16 @@ The task has two parts, and every result in the repo belongs to one of them:
 
    If Homebrew gives you a version other than 0.40.0, tell Freya before running experiments. `log validate` reports every run on another engine version as a problem. Everything so far was tested on a MacBook Pro M1 Max with 64 GB.
 
+   These are the Linux versions of the commands:
+
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | OLLAMA_VERSION=0.40.0 sh
+  sudo systemctl edit ollama    # add the two lines below under [Service]
+  #   Environment="OLLAMA_FLASH_ATTENTION=1"
+  #   Environment="OLLAMA_KV_CACHE_TYPE=q8_0"
+  ollama pull qwen2.5:14b
+  ```
+
 2. **Python environment:** `bash env/setup_env.sh` creates `~/venvs/harmonize` (Python 3.12). See [`env/README.md`](env/README.md).
 
 3. **Data:** download it into `datasets/` as [`datasets/README.md`](datasets/README.md) describes ("Re-fetching").
