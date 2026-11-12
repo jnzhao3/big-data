@@ -63,8 +63,8 @@ def check_run(run_dir: str | Path) -> dict:
     end = next((e for e in reversed(events) if e["type"] == "run_end" and e["proc"] == "driver"), {})
     audit = end.get("engine_audit")
     if audit:
-        from ..engine.audit import audit_problems
-        problems += audit_problems(audit)
+        from ..engine.audit import audit_problems, recheck_sampler
+        problems += audit_problems(recheck_sampler(run_dir, events, audit))
     if (run_dir / "engine_audit.json").exists():  # same input and lineage at T=0 must give the same logprobs
         from ..engine.lineage import check as lineage_check
         for v in lineage_check([run_dir])["violations"]:
@@ -73,6 +73,13 @@ def check_run(run_dir: str | Path) -> dict:
     from ..seeds import check_seeds
     seeds = check_seeds(events)
     problems += [f"seeds: {p}" for p in seeds["problems"]]
-    return {"run_dir": str(run_dir), "problems": problems, "counts": counts, "failed_llm_calls": failed,
+    code = header.get("code") or {}
+    snap = header.get("code_snapshot")
+    if isinstance(snap, dict) and set(snap) == {"blob", "bytes"}:
+        snap = {"stored": True}
+    code_state = {"git_commit": code.get("git_commit"), "git_dirty": code.get("git_dirty"),
+                  # a dirty run's code is recoverable only from its code snapshot (runs before it record a hash)
+                  "recoverable": (not code.get("git_dirty")) or bool(snap)} if code else None
+    return {"run_dir": str(run_dir), "problems": problems, "code": code_state, "counts": counts, "failed_llm_calls": failed,
             "processes": sorted(by_proc), "audited": bool(audit) and "unavailable" not in (audit or {}),
             "seeds": seeds}

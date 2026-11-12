@@ -94,10 +94,14 @@ These keep results comparable across runs, methods and people.
   - `--gt` chooses the schema-matching ground truth only. Value-matching records (`"kind": "vm"`) are always scored against GDC-VM; choose `--vm-mode oracle` if the method was given the attribute pairs, `--vm-mode end_to_end` if it chose them itself (default `oracle`).
   - The output files are still named after `--gt` (`scores.gdc-sm.json`, `items.gdc-sm.csv`), even when they hold value-matching scores.
 - **LLM calls.**
-  - Set the temperature explicitly: the Ollama default is not zero and differs by endpoint.
+  - Set the temperature explicitly: the Ollama default is not zero, and it differs by endpoint and by model (a Modelfile can set its own sampler; hbench reads it from `/api/show`).
   - Log every call, with `hbench.llm.LLMClient` or LiteLLM's `openai/` route plus `hbench.runlog.litellm_cb`. The `ollama_chat/` route cannot return logprobs.
   - Open runs with `start_run`, and check each one with `python -m hbench log validate <run_dir>`.
   - At T>0, state one seed per run (`"per_replicate"` for repeats). hbench sends each sampled call its own seed derived from it, on every route above; `log validate` fails a run whose calls shared one seed (see `hbench/README.md`).
+- **Code.**
+  - Run experiments from committed code, in a checkout you do not edit while they run, for example `git worktree add ~/bigdata-wt/run <commit>`. A script and its subprocesses import `hbench` from their checkout, so edits there change a running experiment.
+  - Change `hbench/` on a branch and merge it, rather than editing it in a shared working tree.
+  - A run started from a dirty tree keeps its diff and untracked sources: `python -m hbench log code <run_dir> --out <dir>`. A commit is still easier to cite.
 - **Repeated runs.** Use `engine.protocol: "cold_start"`, so every repeat starts from the same engine state. See the Quick start.
 - **Outputs.**
   - Each run writes `predictions.jsonl` in the shared format (`hbench/README.md`).

@@ -16,9 +16,9 @@ positions after the value (a reason text) never count. At T=0 the chosen token i
 allowed, so when a constraint such as a format=json grammar ruled out a better-scoring candidate, the gap is
 taken to the best visible candidate below the chosen one (0 if there is none): never more than the real gap.
 
-p_path_default gives, for each endpoint's default sampler, the probability that sampling reproduces the tokens
-through the end of the value (hbench.sampler): what a T=0 run says about the same decision at default
-temperature. Runs at T>0 also get p_path under their own sampler and greedy_path (every token up to the end
+p_path_default gives, for each endpoint's default sampler for the call's model (the server's defaults under the
+model's own Modelfile settings, hbench.sampler.defaults), the probability that sampling reproduces the tokens
+through the end of the value: what a T=0 run says about the same decision at default temperature. Runs at T>0 also get p_path under their own sampler and greedy_path (every token up to the end
 was the top candidate), which stability.sampling_check uses.
 
 A decision is a value taken from the generated token stream, whichever channel carries it: the message text
@@ -361,10 +361,11 @@ def decision_margin(token_logprobs: list | None, text: str | None, value, json_k
 
 def evidence(span_id: str | None, token_logprobs: list | None, text: str | None, value, json_key: str | None = None,
              *, decision: dict | None = None, temperature: float | None = None, sampler_params: dict | None = None,
-             lock: dict | None = None, grammar: bool = False, **extra) -> dict:
+             lock: dict | None = None, grammar: bool = False, model_sampler: dict | None = None, **extra) -> dict:
     """The `evidence` dict for a prediction record: which call decided it and how close the decision was.
     temperature is what the call asked for (0 means greedy, so constrained positions can be recognised);
     sampler_params is the sampler it ran with (hbench.sampler.effective), used when it is above temperature 0.
+    model_sampler: the model's own sampler settings (the llm_call's model_sampler), for p_path_default.
     grammar: the call was constrained (format or a JSON schema). Candidates scoring above a T=0 call's choice are
     then left out where it shows they were ruled out, and every p_path is marked a lower bound: a constraint only
     removes competitors, and those it removed elsewhere are not visible."""
@@ -389,7 +390,7 @@ def evidence(span_id: str | None, token_logprobs: list | None, text: str | None,
 
     ev["p_path_default"] = {}
     for ep in P_PATH_ENDPOINTS:
-        params = sampler.defaults(ep, lock)
+        params = sampler.defaults(ep, lock, model_sampler)
         r = (sampler.p_path(token_logprobs, end, params, constrained) if params else
              {"p": None, "exact": False, "reason": f"no sampler_defaults for {ep} in env/engine-lock.json"})
         ev["p_path_default"][ep] = bound(r)
@@ -403,10 +404,12 @@ def evidence(span_id: str | None, token_logprobs: list | None, text: str | None,
 
 def call_evidence(normalized: dict, spec=None, *, transport: str | None = None, endpoint: str | None = None,
                   span_id: str | None = None, prompt_sha256: str | None = None, key: str | None = None,
-                  caller: str | None = None, lock: dict | None = None, **extra) -> dict:
+                  caller: str | None = None, lock: dict | None = None, model_sampler: dict | None = None,
+                  **extra) -> dict:
     """evidence() for one decision of a call, taken entirely from what the call recorded: the decision from its
     spec (or the parser registered for its caller; the first one, or the one named `key`), the greedy flag from
-    its temperature, the sampler from its decoding over its endpoint's defaults, grammar from its format. This
+    its temperature, the sampler from its decoding over its endpoint's defaults for its model (model_sampler:
+    the model's own settings, which the llm_call records), grammar from its format. This
     is what LLMResult.evidence() and evidence_from_call() return, so a method never restates any of it."""
     from . import sampler
 
@@ -421,8 +424,8 @@ def call_evidence(normalized: dict, spec=None, *, transport: str | None = None, 
     dec = normalized.get("decoding") or {}
     return evidence(span_id, normalized.get("token_logprobs"), out.get("text"), d["value"], decision=d,
                     temperature=dec.get("temperature"),
-                    sampler_params=sampler.effective(dec, sampler.endpoint_of(transport, endpoint), lock), lock=lock,
-                    grammar=dec.get("format") is not None, **extra)
+                    sampler_params=sampler.effective(dec, sampler.endpoint_of(transport, endpoint), lock, model_sampler),
+                    lock=lock, grammar=dec.get("format") is not None, model_sampler=model_sampler, **extra)
 
 
 def evidence_from_call(event: dict, blobs, key: str | None = None, lock: dict | None = None, **extra) -> dict:
@@ -434,7 +437,7 @@ def evidence_from_call(event: dict, blobs, key: str | None = None, lock: dict | 
     return call_evidence(normalized, event.get("decision_spec"), transport=event.get("transport"),
                          endpoint=event.get("endpoint"), span_id=event.get("span_id"),
                          prompt_sha256=event.get("prompt_sha256"), key=key, caller=event.get("caller"), lock=lock,
-                         **extra)
+                         model_sampler=event.get("model_sampler"), **extra)
 
 
 def evidence_columns(ev: dict | None) -> dict:

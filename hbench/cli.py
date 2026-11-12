@@ -377,9 +377,44 @@ def cmd_llm(a) -> int:
 def cmd_log(a) -> int:
     from .runlog.check import check_run
 
+    if a.action == "code":
+        return _restore_code(a.run_dir, a.out)
     res = check_run(a.run_dir)
     print(json.dumps(res, indent=1))
     return 1 if res["problems"] else 0
+
+
+def _restore_code(run_dir, out) -> int:
+    """Write a run's code snapshot to <out>: code.patch (git diff against the run's commit) and the untracked
+    files under untracked/, with the commands that rebuild the tree."""
+    from .runlog import read_events
+    from .runlog.writer import BlobStore, is_blob_ref
+
+    run_dir = Path(run_dir)
+    header = next((e for e in read_events(run_dir) if e["type"] == "run_header" and e["proc"] == "driver"), {})
+    code, snap = header.get("code") or {}, header.get("code_snapshot")
+    if is_blob_ref(snap):
+        snap = BlobStore(run_dir.parent / "_blobs").get(snap)
+    if not snap:
+        if code.get("git_dirty"):
+            print(f"run used uncommitted code but has no code snapshot (git_diff_sha256 {code.get('git_diff_sha256')})")
+            return 1
+        print(f"clean tree: the code is commit {code.get('git_commit')}")
+        return 0
+    if not out:
+        raise SystemExit("--out <dir> is required")
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=False)
+    (out / "code.patch").write_text(snap.get("diff") or "")
+    for rel, text in (snap.get("untracked") or {}).items():
+        p = out / "untracked" / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text)
+    print(f"git worktree add <dir> {snap.get('git_commit')}\ncd <dir> && git apply {out.resolve()}/code.patch"
+          f"\ncp -R {out.resolve()}/untracked/. .")
+    if snap.get("skipped"):
+        print(f"not in the snapshot (not source, too large, or secret-looking names): {snap['skipped'][:10]}")
+    return 0
 
 
 def main(argv=None) -> int:
@@ -459,8 +494,9 @@ def main(argv=None) -> int:
     ll.set_defaults(func=cmd_llm)
 
     lg = sub.add_parser("log", help="check a run directory")
-    lg.add_argument("action", choices=["validate"])
+    lg.add_argument("action", choices=["validate", "code"])
     lg.add_argument("run_dir")
+    lg.add_argument("--out", default=None, help="code: where to write code.patch and the untracked files")
     lg.set_defaults(func=cmd_log)
 
     a = ap.parse_args(argv)

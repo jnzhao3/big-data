@@ -28,9 +28,16 @@ def record_llm_call(log: RunLog, *, caller: str, transport: str, endpoint: str |
                     model: str | None, request: dict | None, response: dict | None, normalized: dict,
                     latency_s: float | None, error: str | None = None, parent_id: str | None = None,
                     step: int | None = None, **extra) -> str:
+    from ..sampler import lookup_model_sampler
+
     request = request or {}
     messages = request.get("messages")
     decoding = normalized.get("decoding") or {}
+    # the model's own sampler settings (its Modelfile), which fill in what the request leaves out: recorded with the
+    # call, so evidence and the audit read the sampler the call ran with from the call alone
+    ms = extra.pop("model_sampler", None)
+    if ms is None:
+        ms = lookup_model_sampler(getattr(log, "model_samplers", None), model)
     output = normalized.get("output")
     tokens = normalized.get("token_logprobs")
     return log.emit(
@@ -47,7 +54,8 @@ def record_llm_call(log: RunLog, *, caller: str, transport: str, endpoint: str |
         output_sha256=None if output is None else sha256_json(
             {"text": output.get("text") or "", "tool_calls": output.get("tool_calls") or []}),
         logprobs_sha256=None if tokens is None else sha256_json(tokens),
-        unavailable=normalized.get("unavailable") or {}, latency_s=latency_s, error=error, **extra)
+        unavailable=normalized.get("unavailable") or {}, latency_s=latency_s, error=error,
+        **({"model_sampler": ms} if ms is not None else {}), **extra)
 
 
 def rederive(event: dict, blobs) -> dict:

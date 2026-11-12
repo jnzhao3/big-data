@@ -9,9 +9,15 @@ top-p works on the T=1 probabilities, before the temperature is applied. With th
 deterministic even at T>0. /v1 defaults (T=1.0, top_p=1.0) give no such protection. The other stages are off
 unless set; p_path() refuses (returns None and the reason) rather than ignore one that is on.
 
-Parameters use the server's names (temp, top_k, top_p, min_p). What a call ran with is its stated decoding over
-the endpoint's defaults, which env/engine-lock.json records under sampler_defaults and the engine audit checks
-call by call.
+Parameters use the server's names (temp, top_k, top_p, min_p). What a call ran with is, from the top:
+- its stated decoding;
+- on /v1, temperature and top_p: Ollama's OpenAI layer sends both in every request (1.0 when the request leaves
+  them out), so they override the model's own settings;
+- the model's own settings, the PARAMETER lines of its Modelfile (/api/show "parameters"; qwen3.8-27b-bdikit
+  sets temperature 1, top_k 20, top_p 0.95). Every run header records them, every llm_call carries them as
+  model_sampler;
+- the server's defaults, which env/engine-lock.json records under sampler_defaults.
+The engine audit checks the result call by call against the sampler the server logged.
 
 Logprobs are the model's distribution before any constraint (a format=json grammar can rule out the top token),
 and only the top few candidates are visible; the rest of the vocabulary is treated as one candidate. A result is
@@ -32,6 +38,12 @@ _REQUEST_KEYS = {"temperature": "temp", "top_k": "top_k", "top_p": "top_p", "min
                  # stages p_path does not model: carried along so unsupported() sees them
                  **{k: k for k in ("repeat_penalty", "frequency_penalty", "presence_penalty", "typical_p", "mirostat")}}
 _CHAIN_KEYS = ("temp", "top_k", "top_p", "min_p")
+# Modelfile PARAMETER names of the sampler stages (num_ctx, stop and the like are not sampler settings)
+_MODELFILE_KEYS = {"temperature": "temp", "top_k": "top_k", "top_p": "top_p", "min_p": "min_p",
+                   **{k: k for k in NEUTRAL}}
+# what an endpoint sends in every request, whatever the model's own settings: Ollama's OpenAI layer sets
+# temperature and top_p (1.0 when the request leaves them out); /api/chat sends only what the request states
+ENDPOINT_SETS = {"/v1/chat/completions": ("temp", "top_p")}
 
 
 def _lock(lock: dict | None) -> dict:
@@ -41,20 +53,69 @@ def _lock(lock: dict | None) -> dict:
     return json.loads(ENGINE_LOCK.read_text()) if ENGINE_LOCK.exists() else {}
 
 
-def defaults(endpoint: str | None, lock: dict | None = None) -> dict:
+def model_sampler(parameters) -> dict:
+    """A model's own sampler settings, in the server's names, from its Modelfile parameters: the text block
+    /api/show returns ("temperature  1\ntop_k  20\n..."), or a dict. {} when it sets none."""
+    if not parameters:
+        return {}
+    if isinstance(parameters, dict):
+        items = list(parameters.items())
+    else:
+        items = [tuple(line.split(None, 1)) for line in str(parameters).splitlines() if line.strip()]
+    out = {}
+    for item in items:
+        if len(item) != 2 or item[0] not in _MODELFILE_KEYS:
+            continue
+        try:
+            out[_MODELFILE_KEYS[item[0]]] = float(str(item[1]).strip().strip('"'))
+        except ValueError:
+            continue
+    return out
+
+
+def _model_names(model: str | None) -> list[str]:
+    name = (model or "").split("/", 1)[-1]  # "openai/qwen2.5:14b" -> "qwen2.5:14b"
+    if not name:
+        return []
+    return [name, name[: -len(":latest")]] if name.endswith(":latest") else [name, name + ":latest"]
+
+
+def header_model_samplers(header: dict | None) -> dict:
+    """{model: its own sampler settings} for the models a run header's engine snapshot looked at (/api/show)."""
+    models = ((((header or {}).get("engine") or {}).get("api") or {}).get("models")) or {}
+    return {m: model_sampler(info.get("modelfile_parameters")) for m, info in models.items()
+            if isinstance(info, dict) and "error" not in info}
+
+
+def lookup_model_sampler(by_model: dict | None, model: str | None) -> dict | None:
+    """One model's settings from {model: settings}, whatever route prefix or ":latest" the name carries; None
+    when the model is not there (its settings are unknown, which is not the same as {}: it sets none)."""
+    for name in _model_names(model):
+        if name in (by_model or {}):
+            return dict(by_model[name])
+    return None
+
+
+def defaults(endpoint: str | None, lock: dict | None = None, model: dict | None = None) -> dict:
     """What the server uses when a request leaves a setting out, for one endpoint ("/api/chat" or
-    "/v1/chat/completions"); {} when the lock does not record it."""
-    return dict((_lock(lock).get("sampler_defaults") or {}).get(endpoint) or {})
+    "/v1/chat/completions"): the model's own settings (model_sampler()) over the server's, except what the
+    endpoint itself sends; {} when the lock does not record the endpoint."""
+    out = dict((_lock(lock).get("sampler_defaults") or {}).get(endpoint) or {})
+    if not out or not model:
+        return out
+    sets = {k: out[k] for k in ENDPOINT_SETS.get(endpoint, ()) if k in out}
+    return {**out, **model, **sets}
 
 
 def endpoint_of(transport: str | None, endpoint: str | None = None) -> str | None:
     return endpoint or ENDPOINT_DEFAULTS_KEY.get(transport or "")
 
 
-def effective(requested: dict | None, endpoint: str | None, lock: dict | None = None) -> dict:
-    """The sampler a call ran with: its stated decoding (request names) over the endpoint's defaults. With an
-    unknown endpoint only the stated settings are known."""
-    out = defaults(endpoint, lock) if endpoint else {}
+def effective(requested: dict | None, endpoint: str | None, lock: dict | None = None,
+              model: dict | None = None) -> dict:
+    """The sampler a call ran with: its stated decoding (request names) over the endpoint's defaults for this
+    model (defaults()). With an unknown endpoint only the stated settings are known."""
+    out = defaults(endpoint, lock, model) if endpoint else {}
     for k, v in (requested or {}).items():
         if k in _REQUEST_KEYS and v is not None:
             out[_REQUEST_KEYS[k]] = v

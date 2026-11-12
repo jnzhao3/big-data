@@ -37,8 +37,10 @@ def results_dir() -> Path:
 
 
 class MockOllama(BaseHTTPRequestHandler):
-    """Answers /api/chat and /v1/chat/completions with real recorded Ollama replies; records what it was sent."""
+    """Answers /api/chat and /v1/chat/completions with real recorded Ollama replies; records what it was sent.
+    /api/show answers `show` (a test sets it, e.g. a model's Modelfile parameters)."""
     seen: list = []
+    show: dict = {}
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -49,6 +51,8 @@ class MockOllama(BaseHTTPRequestHandler):
             out = V1["response"]
         elif self.path == "/api/generate":
             out = {"done": True}
+        elif self.path == "/api/show":
+            out = MockOllama.show
         else:
             out = {}
         data = json.dumps(out).encode()
@@ -72,6 +76,7 @@ class MockOllama(BaseHTTPRequestHandler):
 @pytest.fixture
 def server():
     MockOllama.seen = []
+    MockOllama.show = {}
     srv = HTTPServer(("127.0.0.1", 0), MockOllama)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{srv.server_address[1]}"

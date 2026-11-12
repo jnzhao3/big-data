@@ -149,7 +149,7 @@ From Python: `hbench.score_sm.score_sm(records, Data(), "clark")` and `hbench.sc
 ## Runs
 
 **Conditions.** `make_condition` takes the namespaces `method`, `model`, `decoding`, `engine` and `data`, plus `replicate`:
-- `decoding.temperature` must always be stated: the server default differs by endpoint (0.8 on `/api/chat`, 1.0 on `/v1`).
+- `decoding.temperature` must always be stated: the default differs by endpoint (0.8 on `/api/chat`, 1.0 on `/v1`) and by model (a Modelfile can set its own; qwen3.8-27b-bdikit sets 1, with top_k 20 and top_p 0.95). Settings a condition leaves out come from the model's Modelfile, then from the server (`hbench.sampler.effective`).
 - `decoding.seed` is an integer, `null`, or `"per_replicate"` (each replicate samples with its replicate number as seed). It is the run's base seed:
   - llama-server reseeds its sampler with each request's seed. One seed on every call would make every call draw the same random number at the same token position, so their T>0 samples would be correlated.
   - So every sampled call (T>0) is sent with its own seed, derived from the base, the process and caller, the prompt and how often that prompt came before (`hbench.seeds`). `LLMClient`, the LiteLLM callback and `hbench replay` all do this; greedy calls (T=0) are sent the stated seed unchanged.
@@ -195,7 +195,7 @@ A list of specs names several decisions of one call. `res.evidence()` gives the 
 
 The evidence fields:
 - `margin`: how far the decision was from flipping at T=0, as a logprob gap. In E1, changing the engine state moved gaps by at most 0.33, so decisions with larger margins never flipped.
-- `p_path_default`: the probability that sampling at each endpoint's default temperature reproduces the decision.
+- `p_path_default`: the probability that sampling with each endpoint's default sampler for the call's model reproduces the decision.
 - For runs at T>0: `p_path` under the run's own sampler, and `greedy_path`.
 
 `INTERNALS.md` has the exact definitions.

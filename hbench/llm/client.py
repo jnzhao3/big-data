@@ -29,6 +29,7 @@ from dataclasses import dataclass, field
 from ..runlog.ollama import DEFAULT_BASE
 from ..runlog.writer import RunLog
 from .normalize import NORMALIZERS
+from ..sampler import lookup_model_sampler
 from .record import prompt_sha256, record_llm_call
 
 ENDPOINTS = {"ollama": "/api/chat", "openai_v1": "/v1/chat/completions"}
@@ -56,13 +57,15 @@ class LLMResult:
     transport: str | None = None
     caller: str | None = None
     decision_spec: dict | list | None = None
+    model_sampler: dict | None = None  # the model's own sampler settings (its Modelfile), when the run recorded them
 
     def evidence(self, key: str | None = None, **extra) -> dict:
         """The `evidence` dict for this call's decision (the first its decision spec names, or the one named
         `key`): margin, reproduction probability and the rest, everything taken from the call itself."""
         from ..decisions import call_evidence
         return call_evidence(self.normalized, self.decision_spec, transport=self.transport, span_id=self.span_id,
-                             prompt_sha256=self.prompt_sha256, key=key, caller=self.caller, **extra)
+                             prompt_sha256=self.prompt_sha256, key=key, caller=self.caller,
+                             model_sampler=self.model_sampler, **extra)
 
 
 def _seed_slot(body: dict) -> dict:
@@ -188,7 +191,8 @@ class LLMClient:
                          cached_tokens=eng["cached_tokens"], path_class=eng["path_class"], span_id=span_id,
                          latency_s=latency, request=body, response=response, normalized=normalized,
                          prompt_sha256=prompt_sha256(body, normalized["decoding"]), transport=self.transport,
-                         caller=caller, decision_spec=extra.get("decision_spec"))
+                         caller=caller, decision_spec=extra.get("decision_spec"),
+                         model_sampler=lookup_model_sampler(getattr(self.log, "model_samplers", None), body.get("model")))
 
     # ------------------------------------------------------------------ engine state helpers
 

@@ -45,6 +45,44 @@ def code_info() -> dict:
             "entrypoint": sys.argv[0], "argv": sys.argv[1:]}
 
 
+# untracked files kept in a run's code snapshot: source and small configuration, never data or secrets
+SNAPSHOT_SUFFIXES = (".py", ".sh", ".md", ".toml", ".cfg", ".yaml", ".yml", ".txt", ".json", ".ipynb")
+SNAPSHOT_FILE_LIMIT = 1 << 20
+SNAPSHOT_TOTAL_LIMIT = 16 << 20
+_SECRET_NAMES = ("secret", "token", "password", "credential", ".env", "apikey", "api_key")
+
+
+def code_snapshot() -> dict | None:
+    """The code a run used when the tree was dirty: `git diff HEAD` (tracked files) and the untracked source files
+    (SNAPSHOT_SUFFIXES, at most SNAPSHOT_FILE_LIMIT each; names that look like secrets are skipped). With
+    code.git_commit it restores the exact tree (`python -m hbench log code <run_dir> --out <dir>`). None when the
+    tree is clean or git is unavailable."""
+    diff = _git("diff", "HEAD")
+    others = _git("ls-files", "--others", "--exclude-standard")
+    if diff is None or others is None:
+        return None
+    untracked, skipped, total = {}, [], 0
+    for rel in sorted(others.splitlines()):
+        path = REPO_ROOT / rel
+        low = rel.lower()
+        if not low.endswith(SNAPSHOT_SUFFIXES) or any(m in low for m in _SECRET_NAMES):
+            skipped.append(rel)
+            continue
+        try:
+            size = path.stat().st_size
+            if size > SNAPSHOT_FILE_LIMIT or total + size > SNAPSHOT_TOTAL_LIMIT:
+                skipped.append(rel)
+                continue
+            untracked[rel] = path.read_text(encoding="utf-8")
+            total += size
+        except (OSError, UnicodeDecodeError):
+            skipped.append(rel)
+    if not diff and not untracked:
+        return None
+    return {"git_commit": (_git("rev-parse", "HEAD") or "").strip() or None, "diff": diff, "untracked": untracked,
+            "skipped": skipped}
+
+
 def python_info() -> dict:
     f = sys.flags
     return {"version": platform.python_version(), "executable": sys.executable,
@@ -101,7 +139,7 @@ def collect_run_header(exp: str, condition: dict, task: dict, llm: dict | None =
     return {"exp": exp, "condition": condition, "condition_id": condition_id(condition) if structured else None,
             "task": task, "llm": llm or {},
             "prompts": {k: hashlib.sha256(v.encode()).hexdigest() for k, v in (prompts or {}).items()},
-            "code": code_info(), "python": python_info(), "packages": package_info(), "env": env_info(),
+            "code": code_info(), "code_snapshot": code_snapshot(), "python": python_info(), "packages": package_info(), "env": env_info(),
             "engine": engine, "engine_drift": engine_check(engine) if engine else None,
             "dataset": dataset_info(data, verify_data),
             "hbench": {"version": __version__, "scoring_version": SCORING_VERSION},

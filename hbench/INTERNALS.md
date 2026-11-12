@@ -23,14 +23,14 @@ How the logs are written:
 
 Event types:
 - `run_header`, from `collect_run_header()` (called by `start_run()`):
-  - git commit and dirty flag;
+  - git commit and dirty flag. For a dirty tree, `code_snapshot` also holds the diff against the commit and the untracked source files (small text files only; names that look like secrets are skipped). `python -m hbench log code <run_dir> --out <dir>` writes them out, with the commands that rebuild the tree. `log validate` reports `code.recoverable`: false for a dirty run from before snapshots, which recorded only a hash of its diff;
   - Python flags, including whether `PYTHONHASHSEED` took effect;
   - package versions;
   - the engine snapshot and its drift against `env/engine-lock.json`;
   - environment variables (names only for anything secret-like);
   - data manifest check, prompt hashes;
   - the condition and its `condition_id`;
-  - `effective_decoding`: the stated decoding over the endpoint's defaults, with the seed a `per_replicate` condition resolves to.
+  - `effective_decoding`: the stated decoding over the endpoint's defaults for the condition's model (below), with the seed a `per_replicate` condition resolves to.
 - `llm_call`, schema `hbench.llm_call/3` (below).
 - `engine_action`: an unload, with the protocol that asked for it.
 - `tool_call`, `agent_step`, `state_snapshot`: for agents.
@@ -48,6 +48,7 @@ Every call, from `LLMClient` or from LiteLLM (`runlog.litellm_cb`), is one `llm_
 | output | text, tool calls, finish reason, and `token_logprobs`, a blob of `[token, logprob, [[candidate, logprob], ...]]`. Tool-call arguments are parsed into objects on both endpoints, so the same call compares and hashes the same on both (`/v1` sends a re-serialized JSON string) |
 | hashes | `input_sha256` (what determines generation), `prompt_sha256` (model, messages, tools, format and `think`, without sampling settings: the same prompt at T=0 and at T=0.8 shares it), `request_sha256` (exact bytes), `output_sha256` (text and tool calls), `logprobs_sha256` (bitwise identity) |
 | `decision_spec` | where the method's decision is in the output, when the caller stated it |
+| `model_sampler` | the model's own sampler settings (its Modelfile `PARAMETER` lines, from the run header's engine snapshot), when the run recorded them |
 | `unavailable` | what this transport could not provide, and why |
 
 ## Margins and reproduction probability (`hbench.decisions`, `hbench.sampler`)
@@ -71,7 +72,12 @@ Reproduction probability:
 - `sampler.p_path(tokens, end, params)` is the probability that sampling with `params` reproduces the tokens through position `end`.
   - It is exact when the top-p nucleus lies within the visible candidates; the result says so.
   - It returns `None`, with the reason, when another sampler stage (a penalty, typical, xtc, dry, mirostat) is on.
-- `sampler.effective(decoding, endpoint)` is the sampler a call ran with: what it stated, over the endpoint's defaults in `env/engine-lock.json`.
+- `sampler.effective(decoding, endpoint, model=...)` is the sampler a call ran with. From the top:
+  - what the call stated;
+  - on `/v1`, temperature and top_p: Ollama's OpenAI layer sends both in every request, 1.0 when the request leaves them out;
+  - the model's own settings, the `PARAMETER` lines of its Modelfile (`/api/show` `parameters`). qwen3.8-27b-bdikit sets temperature 1, top_k 20, top_p 0.95; qwen2.5:14b sets none. Every run header's engine snapshot records them (`modelfile_parameters`), and every `llm_call` carries them as `model_sampler`;
+  - the server's defaults in `env/engine-lock.json`.
+- `sampler.defaults(endpoint, model=...)` is the same without stated settings: what `p_path_default` samples with. For qwen3.8-27b-bdikit that is T 1.0, top_k 20, top_p 0.95 on `/api/chat`, and T 1.0, top_k 20, top_p 1.0 on `/v1`.
 - With a grammar (`format` or a JSON schema) every `p_path` is a lower bound. Where a T=0 call shows that a constraint ruled out higher-scoring candidates, those are left out of the computation.
 
 Stability over runs at T>0 (`stability.sampling_check`):
@@ -89,9 +95,11 @@ Stability over runs at T>0 (`stability.sampling_check`):
   - Context and batch sizes are not pinned: they follow each caller's `num_ctx` and are recorded per run instead.
   - `sampler_defaults` records what each endpoint uses for settings a request leaves out, as read from audited calls. `/api/chat` uses T 0.8, top_k 40, top_p 0.9; `/v1` uses T 1.0, top_k 40, top_p 1.0; min_p is 0 on both. Regenerating the lock (`python -m hbench engine lock --write --force`) keeps them.
 - **The audit** (`python -m hbench audit <run_dir>`, run automatically when a `start_run` run closes) parses the server-log bytes between the run's start and end offsets and joins them with the run's calls. Per call it recovers:
-  - the effective sampler parameters, every one compared with what the call asked for over its endpoint's defaults;
+  - the effective sampler parameters, every one compared with `sampler.effective` for the call and its model;
   - reused and recomputed tokens, RAM-cache restores, truncation and HTTP status;
   - the computation lineage.
+
+  `log validate` recomputes that comparison from `engine_audit.json`, so audits written before the model's own settings were taken into account (they flagged top_k 20 against 40 on qwen3.8-27b-bdikit) are judged by the current rule.
 
   It also checks the engine protocol: under `cold_start`, a runner start before the first call with nothing reused; under `cold`, a runner start before every call. It flags calls whose server-side sampler ran a stage `p_path` cannot model (`sampler_unmodelled`). Requests that match none of the run's calls are foreign: another client used the server.
 

@@ -185,7 +185,8 @@ def compare(src: dict, rep: dict, blobs: BlobStore, lineage_source: dict | None 
                    "d_margin": None if ma["margin"] is None or mb["margin"] is None else mb["margin"] - ma["margin"]}
             if rep.get("overrides"):  # resampling: how likely the replay's sampler was to reproduce the source
                 params = sampler.effective(rep.get("decoding"), sampler.endpoint_of(rep.get("transport"),
-                                                                                    rep.get("endpoint")))
+                                                                                    rep.get("endpoint")),
+                                           model=rep.get("model_sampler", src.get("model_sampler")))
                 out.update(overrides=rep["overrides"], sampling_change=out["decision_flipped"],
                            p_path_source=sampler.p_path(ta, ma.get("end"), params)["p"])
             rows.append(out)

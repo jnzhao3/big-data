@@ -139,10 +139,48 @@ def join_calls(calls: list[dict], tasks: list[dict]) -> dict:
     return {"matched": matched, "foreign": foreign, "unmatched_calls": calls[j:]}
 
 
+def sampler_mismatches(pairs, header: dict | None = None) -> list[dict]:
+    """Settings the server ran with that differ from what the call should have run with: its decoding over its
+    endpoint's defaults for its model (hbench.sampler.effective; the model's own settings from the call's
+    model_sampler, else from the run header's engine snapshot). pairs: (llm_call event, sampler the server
+    logged for it)."""
+    from ..sampler import NEUTRAL, effective, endpoint_of, header_model_samplers, lookup_model_sampler
+
+    by_model = header_model_samplers(header)
+    out = []
+    for c, got_all in pairs:
+        model = c.get("model_sampler")
+        if model is None:
+            model = lookup_model_sampler(by_model, c.get("model"))
+        want = effective(c.get("decoding") or {}, endpoint_of(c.get("transport"), c.get("endpoint")), model=model)
+        for k in ("temp", "top_k", "top_p", "min_p", *NEUTRAL):
+            got = (got_all or {}).get(k)
+            if want.get(k) is not None and got is not None and abs(float(want[k]) - got) > 1e-6:
+                out.append({"span_id": c["span_id"], "key": k, "requested": want[k], "effective": got})
+    return out
+
+
+def recheck_sampler(run_dir, events: list[dict], summary: dict) -> dict:
+    """The audit summary with sampler_mismatches recomputed from engine_audit.json under the current rule (audits
+    written before the model's own settings were taken into account compared against the server's defaults
+    only, e.g. top_k 40 where qwen3.8-27b-bdikit sets 20). The summary unchanged without engine_audit.json."""
+    path = Path(run_dir) / "engine_audit.json"
+    if not summary or "unavailable" in summary or not path.exists():
+        return summary
+    try:
+        rows = json.loads(path.read_text()).get("calls") or []
+    except (OSError, json.JSONDecodeError):
+        return summary
+    calls = {e.get("span_id"): e for e in events if e.get("type") == "llm_call"}
+    header = next((e for e in events if e.get("type") == "run_header" and e.get("proc") == "driver"), None)
+    pairs = [(calls[r["span_id"]], r.get("sampler")) for r in rows if r.get("span_id") in calls]
+    return {**summary, "sampler_mismatches": sampler_mismatches(pairs, header)}
+
+
 def audit_run(run_dir, server_log: str | None = None, end_offset: int | None = None) -> dict:
     """Audit one run; writes engine_audit.json into the run folder and returns its summary."""
     from ..runlog.writer import read_events
-    from ..sampler import NEUTRAL, effective, endpoint_of, unsupported
+    from ..sampler import unsupported
     from .lineage import for_window, labelled
     from .snapshot import SERVER_LOG, log_offset
 
@@ -165,17 +203,12 @@ def audit_run(run_dir, server_log: str | None = None, end_offset: int | None = N
     index = {id(t): i for i, t in enumerate(parsed["tasks"])}
     span_at = {before + index[id(t)]: c["span_id"] for c, t in j["matched"]}
     protocol = (((header or {}).get("condition") or {}).get("engine") or {}).get("protocol", "natural")
-    rows, mismatches, unmodelled = [], [], []
+    rows, unmodelled = [], []
+    mismatches = sampler_mismatches([(c, t["sampler"]) for c, t in j["matched"]], header)
     for c, t in j["matched"]:
-        # what the call asked for, over its endpoint's defaults (env/engine-lock.json), against what the server ran
-        want = effective(c.get("decoding") or {}, endpoint_of(c.get("transport"), c.get("endpoint")))
         why = unsupported(t["sampler"])  # a stage the server ran that p_path cannot model (e.g. a Modelfile default)
         if why:
             unmodelled.append({"span_id": c["span_id"], "reason": why})
-        for k in ("temp", "top_k", "top_p", "min_p", *NEUTRAL):
-            got = t["sampler"].get(k)
-            if want.get(k) is not None and got is not None and abs(float(want[k]) - got) > 1e-6:
-                mismatches.append({"span_id": c["span_id"], "key": k, "requested": want[k], "effective": got})
         api_cached = (c.get("engine") or {}).get("cached_tokens")
         lin = None
         if lineage is not None and index[id(t)] < len(lineage):

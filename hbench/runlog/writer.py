@@ -131,6 +131,8 @@ class RunLog:
             if h.get("type") == "run_header":
                 log.condition = h.get("condition")
                 log.effective_decoding = h.get("effective_decoding") or {}
+                from ..sampler import header_model_samplers
+                log.model_samplers = header_model_samplers(h)
         return log
 
     def _index(self, entry: dict) -> None:

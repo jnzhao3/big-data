@@ -17,7 +17,7 @@ from pathlib import Path
 
 from ..data import Data
 from ..design import condition_slug, effective_seed, ollama_lease, protocol_actions, validate_condition
-from ..sampler import effective, endpoint_of
+from ..sampler import effective, endpoint_of, header_model_samplers, lookup_model_sampler
 from .header import collect_run_header
 from .writer import RunLog
 
@@ -66,16 +66,21 @@ def start_run(root: str | Path, exp: str, condition: dict, *, task: dict, models
             lease_cm.__exit__(None, None, None)
             return {"lease_released": True}
         log.add_close_hook(release_lease)
-    # the sampler the calls run with: what the condition states, over the endpoint's defaults (the audit checks it)
     log.condition = condition
-    log.effective_decoding = effective(condition.get("decoding"), endpoint_of(transport))
+    base = {"ollama_base": ollama_base} if ollama_base else {}
+    header = collect_run_header(exp, condition, task, llm=llm, prompts=prompts, data=data, ollama_models=models,
+                                verify_data=verify_data, lease=lease_rec, **base, **extra)
+    # the sampler the calls run with: what the condition states, over the endpoint's defaults for the model (its
+    # Modelfile settings, from the header's engine snapshot); the audit checks it. Every llm_call of this log
+    # records its model's settings as model_sampler (hbench.llm.record)
+    log.model_samplers = header_model_samplers(header)
+    model = lookup_model_sampler(log.model_samplers, (condition.get("model") or {}).get("name"))
+    log.effective_decoding = effective(condition.get("decoding"), endpoint_of(transport), model=model)
     seed = effective_seed(condition)
     if seed is not None:
         log.effective_decoding["seed"] = seed
-    base = {"ollama_base": ollama_base} if ollama_base else {}
-    log.emit("run_header", **collect_run_header(exp, condition, task, llm=llm, prompts=prompts, data=data,
-                                                ollama_models=models, verify_data=verify_data, lease=lease_rec,
-                                                effective_decoding=log.effective_decoding, **base, **extra))
+    header["effective_decoding"] = log.effective_decoding
+    log.emit("run_header", **header)
     if start_action == "unload":  # after the header (its log offset), so the audit sees the reload that follows
         from ..llm.client import LLMClient
         for m in models:
