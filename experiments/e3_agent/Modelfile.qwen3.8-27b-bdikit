@@ -1,0 +1,10 @@
+# Derived model for E3/E4: qwen3.8:27b-q4_K_M with a fixed context size, nothing else changed.
+# The base model has no TEMPLATE layer: Ollama renders prompts with its built-in renderer "qwen3.8" and parses
+# replies (tool calls, thinking) with its built-in parser "qwen3.5". Unlike qwen2.5:14b, no template fix is needed.
+# num_ctx is pinned so the context size does not depend on Ollama's memory-based default (same as the 14b model).
+# No sampling PARAMETERs are added: every request states temperature and top_p. The base model's params blob
+# (top_k 20, min_p 0, repeat_penalty 1, presence_penalty 0) is inherited and recorded by the engine audit.
+# Thinking stays on (the model's default), for the agent and for the tool-internal LLM calls alike.
+# Create with: ollama create qwen3.8-27b-bdikit -f Modelfile.qwen3.8-27b-bdikit
+FROM qwen3.8:27b-q4_K_M
+PARAMETER num_ctx 32768

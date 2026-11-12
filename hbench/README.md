@@ -221,4 +221,4 @@ The evidence fields:
 ## Not yet built
 
 - A run-plan executor: conditions × replicates in randomized order, with the plan and what actually ran both recorded.
-- With the BDI-Kit agent driver: a logged MCP server wrapper, LangChain step callbacks, and first-divergence search across two agent runs.
+- First-divergence search across two agent runs (`hbench log diverge`). The agent logging it needs is in place: `hbench.runlog.mcp_logged` (the logged MCP server), `hbench.runlog.langchain_cb` (agent steps, client-side tool calls) and `hbench.adapters.bdikit_agent`, used by `experiments/e3_agent/`.

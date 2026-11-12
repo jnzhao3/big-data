@@ -1,0 +1,64 @@
+# Derived model for E3/E4: qwen2.5:14b with a fixed context size and a fixed chat template.
+# The stock template (blob sha256 eb4402837c78...) renders an assistant message's text OR its tool calls, never both,
+# so a step that wrote text next to a tool call loses the call from the history (BDI-Kit agent test plan 2.1).
+# Here both are rendered (text, newline, <tool_call> block). Rendering against stock:
+#   tool calls only: identical; text and tool calls: text, newline, tool calls (stock dropped the calls);
+#   text only: one extra newline before <|im_end|>.
+# Constraint (Ollama 0.40.0, verified 2026-11-11): Ollama infers the tool-call format from the text right after the
+# template's first {{ if .ToolCalls }}. That text must be <tool_call>, or Ollama returns calls as plain content
+# (no tool_calls field) and a LangGraph agent stops at its first step. A variant that also kept text-only messages
+# identical needed a second {{ if .ToolCalls }} before this one, and broke parsing.
+# No sampling PARAMETERs: every request states temperature and top_p.
+# Create with: ollama create qwen2.5-14b-bdikit -f Modelfile.qwen2.5-14b-bdikit
+FROM qwen2.5:14b
+PARAMETER num_ctx 32768
+TEMPLATE """{{- if .Messages }}
+{{- if or .System .Tools }}<|im_start|>system
+{{- if .System }}
+{{ .System }}
+{{- end }}
+{{- if .Tools }}
+
+# Tools
+
+You may call one or more functions to assist with the user query.
+
+You are provided with function signatures within <tools></tools> XML tags:
+<tools>
+{{- range .Tools }}
+{"type": "function", "function": {{ .Function }}}
+{{- end }}
+</tools>
+
+For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
+<tool_call>
+{"name": <function-name>, "arguments": <args-json-object>}
+</tool_call>
+{{- end }}<|im_end|>
+{{ end }}
+{{- range $i, $_ := .Messages }}
+{{- $last := eq (len (slice $.Messages $i)) 1 -}}
+{{- if eq .Role "user" }}<|im_start|>user
+{{ .Content }}<|im_end|>
+{{ else if eq .Role "assistant" }}<|im_start|>assistant
+{{ if .Content }}{{ .Content }}
+{{ end }}{{- if .ToolCalls }}<tool_call>
+{{ range .ToolCalls }}{"name": "{{ .Function.Name }}", "arguments": {{ .Function.Arguments }}}
+{{ end }}</tool_call>
+{{- end }}{{ if not $last }}<|im_end|>
+{{ end }}
+{{- else if eq .Role "tool" }}<|im_start|>user
+<tool_response>
+{{ .Content }}
+</tool_response><|im_end|>
+{{ end }}
+{{- if and (ne .Role "assistant") $last }}<|im_start|>assistant
+{{ end }}
+{{- end }}
+{{- else }}
+{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ end }}{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}"""

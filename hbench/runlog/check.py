@@ -56,6 +56,9 @@ def check_run(run_dir: str | Path) -> dict:
     cloud = [e["span_id"] for e in events if e["type"] == "llm_call" and e.get("cloud_call")]
     if cloud:
         problems.append(f"{len(cloud)} llm_call(s) went to a non-local api_base: {cloud[:5]}")
+    refused = [e["span_id"] for e in events if e["type"] == "error" and e.get("kind") == "cloud_call_attempted"]
+    if refused:  # refused by hbench.runlog.mcp_logged before leaving the machine; the run did not do what it says
+        problems.append(f"{len(refused)} call(s) to a non-local or disallowed model were attempted: {refused[:5]}")
     failed = sum(1 for e in events if e["type"] == "llm_call" and e.get("error"))
     header = next((e for e in events if e["type"] == "run_header" and e["proc"] == "driver"), {})
     if header.get("engine_drift"):  # differences from the lock, or locked settings that could not be checked

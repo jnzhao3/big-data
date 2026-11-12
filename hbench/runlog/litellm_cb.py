@@ -40,8 +40,21 @@ _DERIVED: dict[str, int] = {}
 _DERIVED_LOCK = threading.Lock()
 PARENT_SPAN: contextvars.ContextVar[str | None] = contextvars.ContextVar("hbench_parent_span", default=None)
 STEP: contextvars.ContextVar[int | None] = contextvars.ContextVar("hbench_step", default=None)
+# Overrides the logger's fixed caller for calls made in this context, e.g. "tool:match_values/llm" inside an MCP
+# tool (hbench.runlog.mcp_logged sets it per tool call).
+CALLER: contextvars.ContextVar[str | None] = contextvars.ContextVar("hbench_caller", default=None)
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 _LOCAL_BY_DEFAULT = {"ollama", "ollama_chat"}  # LiteLLM's default api_base for these is localhost:11434
+
+
+@contextlib.contextmanager
+def caller(name: str | None):
+    """LLM calls made inside this block are logged with this caller instead of the logger's own."""
+    t = CALLER.set(name)
+    try:
+        yield
+    finally:
+        CALLER.reset(t)
 
 
 @contextlib.contextmanager
@@ -77,10 +90,11 @@ def _plain(x):
 
 
 class HBenchLiteLLMLogger(CustomLogger):
-    def __init__(self, log: RunLog, caller: str = "litellm"):
+    def __init__(self, log: RunLog, caller: str = "litellm", decision_spec: dict | list | None = None):
         super().__init__()
         self.log = log
         self.caller = caller
+        self.decision_spec = decision_spec  # stored on each llm_call, as LLMClient.chat(decision=...) does
         self._done: set[str] = set()
         self._requests: dict[str, object] = {}
         self._pending: set[str] = set()
@@ -103,7 +117,7 @@ class HBenchLiteLLMLogger(CustomLogger):
                     base = _DERIVED[call_id]
                 else:
                     dec = decoding_native(body) if isinstance(body.get("options"), dict) else decoding_openai(body)
-                    base = derive_call_seed(body, dec, self._seeds, self.caller)
+                    base = derive_call_seed(body, dec, self._seeds, CALLER.get() or self.caller)
                     if base is not None and call_id:
                         _DERIVED[call_id] = base
                         while len(_DERIVED) > 10000:  # only calls in flight matter
@@ -178,12 +192,13 @@ class HBenchLiteLLMLogger(CustomLogger):
                 latency = round((end_time - start_time).total_seconds(), 3)
             except AttributeError:
                 latency = round(float(end_time) - float(start_time), 3)
-        record_llm_call(self.log, caller=self.caller, transport=f"litellm/{provider}", endpoint=None,
+        extra = {"decision_spec": self.decision_spec} if self.decision_spec is not None else {}
+        record_llm_call(self.log, caller=CALLER.get() or self.caller, transport=f"litellm/{provider}", endpoint=None,
                         api_base=api_base, model=kwargs.get("model") or slo.get("model"), request=request_body,
                         response=response, normalized=normalized, latency_s=latency, error=error,
                         parent_id=PARENT_SPAN.get(), step=STEP.get(), litellm_call_id=call_id,
                         cloud_call=not is_local(api_base, provider),
-                        **({"seed_base": seed_base, "seed_rule": SEED_RULE} if seed_base is not None else {}))
+                        **({"seed_base": seed_base, "seed_rule": SEED_RULE} if seed_base is not None else {}), **extra)
 
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
         self._emit(kwargs, response_obj, start_time, end_time, failed=False)
@@ -198,9 +213,10 @@ class HBenchLiteLLMLogger(CustomLogger):
         self._emit(kwargs, response_obj, start_time, end_time, failed=True)
 
 
-def install(log: RunLog, caller: str = "litellm") -> HBenchLiteLLMLogger:
+def install(log: RunLog, caller: str = "litellm", decision_spec: dict | list | None = None,
+            logger_cls: type | None = None) -> HBenchLiteLLMLogger:
     import litellm
-    cb = HBenchLiteLLMLogger(log, caller)
+    cb = (logger_cls or HBenchLiteLLMLogger)(log, caller, decision_spec)
     litellm.callbacks.append(cb)
     return cb
 
