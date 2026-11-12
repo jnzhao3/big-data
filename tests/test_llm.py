@@ -275,4 +275,6 @@ def test_client_decoding_defaults_to_the_run_condition(tmp_path, server):
     LLMClient(log, "m", base=server).chat([{"role": "user", "content": "q"}], caller="x")
     log.close()
     sent = _Server.seen[-1][1]["options"]
-    assert (sent["temperature"], sent["seed"]) == (0.8, 4)  # stated once, in the condition; the seed resolved
+    call = next(e for e in read_events(log.run_dir) if e["type"] == "llm_call")
+    assert sent["temperature"] == 0.8 and call["seed_base"] == 4  # stated once, in the condition; the seed resolved
+    assert sent["seed"] == call["decoding"]["seed"] != 4             # and sent as this call's own seed

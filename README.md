@@ -97,6 +97,7 @@ These keep results comparable across runs, methods and people.
   - Set the temperature explicitly: the Ollama default is not zero and differs by endpoint.
   - Log every call, with `hbench.llm.LLMClient` or LiteLLM's `openai/` route plus `hbench.runlog.litellm_cb`. The `ollama_chat/` route cannot return logprobs.
   - Open runs with `start_run`, and check each one with `python -m hbench log validate <run_dir>`.
+  - At T>0, state one seed per run (`"per_replicate"` for repeats). hbench sends each sampled call its own seed derived from it, on every route above; `log validate` fails a run whose calls shared one seed (see `hbench/README.md`).
 - **Repeated runs.** Use `engine.protocol: "cold_start"`, so every repeat starts from the same engine state. See the Quick start.
 - **Outputs.**
   - Each run writes `predictions.jsonl` in the shared format (`hbench/README.md`).

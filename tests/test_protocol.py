@@ -98,16 +98,42 @@ def test_replay_seeds_share_one_condition(tmp_path, server):
     MockOllama.seen = []
     assert main(["replay", str(run), "--protocol", "cold_start", "--set", "temperature=0.8", "--seeds", "1-2",
                  "--out", str(tmp_path / "rep")]) == 0
+    from hbench.seeds import call_seed
+    src = next(e for e in read_events(run) if e["type"] == "llm_call")
+    want = [call_seed(s, f"driver/{src['caller']}", src["prompt_sha256"], 0) for s in (1, 2)]
     sent = [b for p, b in MockOllama.seen if p == "/api/chat"]
-    assert [b["options"]["seed"] for b in sent] == [1, 2] and all(b["options"]["temperature"] == 0.8 for b in sent)
+    assert [b["options"]["seed"] for b in sent] == want
+    assert all(b["options"]["temperature"] == 0.8 for b in sent)
     assert [b for p, b in MockOllama.seen if p == "/api/generate"] == [{"model": "m", "keep_alive": 0}] * 2
     runs = sorted((tmp_path / "rep").glob("replay-*"))
     headers = [next(e for e in read_events(r) if e["type"] == "run_header") for r in runs]
     assert len({h["condition_id"] for h in headers}) == 1 and sorted(h["condition"]["replicate"] for h in headers) == [1, 2]
     calls = [e for r in runs for e in read_events(r) if e["type"] == "llm_call"]
-    assert sorted(e["overrides"]["seed"] for e in calls) == [1, 2]
+    assert sorted(e["overrides"]["seed"] for e in calls) == sorted(want)
+    assert sorted(e["seed_base"] for e in calls) == [1, 2]
     rows = [row for r in runs for row in __import__("csv").DictReader(open(r / "replay_compare.csv"))]
     assert all(row["overrides"] and row["p_path_source"] for row in rows)
+
+
+def test_replay_seeds_differ_per_call_and_reproduce(tmp_path, server):
+    # llama-server reseeds its sampler with each request's seed: one seed on every call would sample every call with
+    # the same random draws, so a replicate's seed is turned into one seed per call
+    from hbench.cli import main
+    run = _source_run(tmp_path, server, n=3)
+    seeds = []
+    for out in ("rep_a", "rep_b"):
+        MockOllama.seen = []
+        assert main(["replay", str(run), "--protocol", "as_is", "--set", "temperature=0.8", "--seeds", "1-2",
+                     "--out", str(tmp_path / out)]) == 0
+        seeds.append([b["options"]["seed"] for p, b in MockOllama.seen if p == "/api/chat"])
+    assert len(seeds[0]) == 6 and len(set(seeds[0])) == 6       # every call of every replicate has its own seed
+    assert seeds[0] == seeds[1]                                  # the same --seeds give the same per-call seeds
+    assert all(0 <= s < 2 ** 31 for s in seeds[0])
+    runs = sorted((tmp_path / "rep_a").glob("replay-*"))
+    header = next(e for e in read_events(runs[0]) if e["type"] == "run_header")
+    assert header["condition"]["decoding"]["seed"] == "per_replicate"
+    rows = [row for r in runs for row in __import__("csv").DictReader(open(r / "replay_compare.csv"))]
+    assert sorted(int(r["call_seed"]) for r in rows) == sorted(seeds[0])
 
 
 def test_audit_verifies_the_protocol(tmp_path):

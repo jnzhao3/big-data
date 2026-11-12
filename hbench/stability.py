@@ -52,7 +52,8 @@ def fleiss_kappa(table) -> float:
     return float("nan") if p_e == 1 else float((p_bar - p_e) / (1 - p_e))
 
 
-def stability_report(long: pd.DataFrame, reference: pd.DataFrame | None = None, endpoint: str | None = None) -> dict:
+def stability_report(long: pd.DataFrame, reference: pd.DataFrame | None = None, endpoint: str | None = None,
+                     seed_independent: bool | None = None) -> dict:
     """Prediction flips, Fleiss' kappa, pass@k / pass^k and always/sometimes/never-correct counts.
     Items missing from some runs are dropped (reported as n_items_incomplete). Item tables of runs at T>0 (with
     p_path / greedy_path) also get sampling_check; reference and endpoint are passed on to it."""
@@ -97,7 +98,7 @@ def stability_report(long: pd.DataFrame, reference: pd.DataFrame | None = None, 
         out["margin_quantiles"] = {q: float(m.quantile(q)) for q in (0.1, 0.25, 0.5)}
         out["flips_by_margin"] = flips_by_margin(long)
     if "p_path" in long and "greedy_path" in long and (long["greedy_path"].notna().any() or reference is not None):
-        out["sampling_check"] = sampling_check(long, reference, endpoint)
+        out["sampling_check"] = sampling_check(long, reference, endpoint, seed_independent)
     return out
 
 
@@ -105,13 +106,18 @@ SAMPLING_INTERVAL_NOTE = ("[sum 2P(1-P), sum 1-P^2] is a range for the pairwise 
                           "each decision are fixed structure; with free text before the decision only the upper end holds")
 
 
-def sampling_check(long: pd.DataFrame, reference: pd.DataFrame | None = None, endpoint: str | None = None) -> dict:
+def sampling_check(long: pd.DataFrame, reference: pd.DataFrame | None = None, endpoint: str | None = None,
+                   seed_independent: bool | None = None) -> dict:
     """Do runs at T>0 change more than sampling allows? P is the probability that the sampler reproduces an
     item's greedy path through the end of its decision: from a run whose path was greedy (greedy_path, p_path),
     else from a T=0 reference run's item table matched by prompt_sha256 (its p_path under `endpoint`'s default
     sampler). P only bounds the probability of the decision from below (other paths can reach the same decision),
     so the check is one-sided: an item can change across n runs with probability at most 1 - P^n, and an alarm is
-    raised when more items changed than that bound allows (beyond three standard deviations)."""
+    raised when more items changed than that bound allows (beyond three standard deviations).
+
+    The alarm and the pairwise interval assume the items were sampled independently. seed_independent=False
+    (hbench.seeds.check_seeds found calls sharing one seed, i.e. correlated draws) drops both: the expected
+    count, bound_expected, still holds under any dependence, its spread does not."""
     ref = {}
     if reference is not None and endpoint is not None and "prompt_sha256" in reference:
         col = {"/api/chat": "p_path_api_chat", "/v1/chat/completions": "p_path_v1"}[endpoint]
@@ -133,10 +139,14 @@ def sampling_check(long: pd.DataFrame, reference: pd.DataFrame | None = None, en
         pairs.append((2 * p * (1 - p), 1 - p * p))
     bound = sum(bounds)
     sd = math.sqrt(sum(u * (1 - u) for u in bounds))
-    return {"n_checked": len(bounds), "n_unchecked": unchecked, "observed_changed": observed, "bound_expected": bound,
-            "alarm": observed > bound + 3 * sd,
-            "interval_pairwise": [sum(a for a, _ in pairs), sum(b for _, b in pairs)],
-            "interval_note": SAMPLING_INTERVAL_NOTE}
+    out = {"n_checked": len(bounds), "n_unchecked": unchecked, "observed_changed": observed, "bound_expected": bound,
+           "alarm": observed > bound + 3 * sd,
+           "interval_pairwise": [sum(a for a, _ in pairs), sum(b for _, b in pairs)],
+           "interval_note": SAMPLING_INTERVAL_NOTE, "seed_independent": seed_independent}
+    if seed_independent is False:
+        out.update(alarm=None, interval_pairwise=None,
+                   dependence_note="calls shared seeds (correlated draws): only bound_expected holds")
+    return out
 
 
 MARGIN_BINS = (0.0, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, float("inf"))

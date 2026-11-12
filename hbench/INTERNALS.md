@@ -138,8 +138,11 @@ Checks:
 | `as_is` | unchanged |
 
 Sampler settings can be overridden, to resample logged requests at T>0:
-- `--set temperature=0.8` (repeatable): temperature, seed, top_p, top_k, and min_p on `/api/chat`.
-- `--seeds 1-15`: one replay run per seed, all replicates of one condition.
+- `--set temperature=0.8` (repeatable): temperature, top_p, top_k, and min_p on `/api/chat`.
+- `--seeds 1-15`: one replay run per seed, all replicates of one condition. `--set seed=N` is the same as `--seeds N`.
+  - Each sampled call gets its own seed by the rule natural runs use (Seeds, below). A call whose logged seed was derived from the same base is sent that seed, so `--seeds s` sends exactly the seeds a natural run with base seed s sent. `replay_compare.csv` has both `seed` and `call_seed`.
+  - Without a seed, a sampled source call is resent with its logged seed, and a greedy source call resampled at T>0 takes its logged seed as the base.
+  - `--repeat` reuses each call's seed: repeats are seeded repeats (does a seed reproduce?), not independent samples. Use `--seeds` for those.
 - Under `cold_start` every `--repeat` is its own run, so each repeat really starts cold.
 
 `replay_compare.csv` has one row per decision of each replayed call, keyed by `source_call` (the call's index in the source run). A tool call's name and its arguments are separate decisions. Each row compares the replay with its source:
@@ -147,3 +150,28 @@ Sampler settings can be overridden, to resample logged requests at T>0:
 - each decision's margin and whether it flipped;
 - `lineage_source`, `lineage_replay` and `lineage_same`, which says whether bitwise identity is predicted;
 - with overrides, `p_path_source`: the probability that the replay's sampler reproduces the source's decision path. The summary prints observed decision changes against what the source's logprobs allow.
+
+## Seeds (`hbench.seeds`)
+
+llama-server reseeds its sampler with each request's seed. Calls sent with the same seed draw the same random number at the same token position, so their T>0 decisions are sampled with correlated draws: when the draw at a position is small, every call picks its top candidate there. E1 Stage 3's first smoke run sent one seed on every call and saw 0 decision changes in 80 samples where `p_path` expected 22.8.
+
+Each decision's own probability of changing is unaffected, and so is the expected number of changes. What breaks is everything that assumes independent samples: variances, intervals, the `sampling_check` alarm.
+
+The rule (`call/1`):
+- The seed a condition or caller states is a base. Every sampled call (temperature above 0, or unset) is sent with `call_seed(base, scope, prompt_sha256, k)`: the first 31 bits of a SHA-256.
+  - `scope` is the process and the caller, such as `driver/method:clark_match`, so two processes of one run that send the same prompt get different seeds.
+  - `k` counts that process's earlier calls with the same base, scope and prompt.
+- Calls are independent, a run is reproducible from its base, and the same prompt in two conditions gets the same seed (common random numbers).
+- Greedy calls keep the stated seed: the sampler does not use it, and T=0 requests stay byte-identical to earlier runs.
+- `LLMClient.chat`, the LiteLLM callback and replay apply it. The LiteLLM callback replaces the seed in the request body LiteLLM is about to send. `LLMClient.send` sends a body exactly as given.
+- A process attached with `RunLog.attach` takes the run's condition from the driver's run header, so its clients follow the same rule and settings.
+- A derived call's `llm_call` event has `seed_base` and `seed_rule`; `decoding.seed` is the seed actually sent.
+- `decoding.seed_mode: "shared"` turns the rule off for a condition.
+
+Checks, from the log alone, whatever route sent the calls:
+- `check_seeds`, run by `log validate`, per run:
+  - a problem: sampled calls with different prompts share one seed that was not derived (derived seeds that collide do so by chance);
+  - notes: the condition shares seeds on purpose; a prompt was sampled more than once with the same seed (seeded repeats); sampled calls sent no seed (independent, but not reproducible); the condition states a fixed integer seed at T>0.
+  - `independent` is False after a shared seed or a seeded repeat.
+- `check_replicates`, across the runs of one condition: two runs that sampled the same prompt with the same seed are copies, not independent replicates. A fixed integer seed at T>0 does this, and so do replay repeats without `--seeds`.
+- `python -m hbench stability` uses both. When they find dependence, `sampling_check` keeps `bound_expected` (an expectation, valid under any dependence) and drops the alarm and the pairwise interval.

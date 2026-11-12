@@ -10,6 +10,12 @@ Each call becomes an llm_call in the hbench.llm_call/3 schema (see hbench.llm). 
 ollama_chat/ route drops assistant tool_calls. Logprobs and cached-token counts are available only on routes
 that keep them (openai/ with logprobs=True); others list them under `unavailable`. Calls to a non-local
 api_base are flagged with cloud_call=True.
+
+Seeds: a sampled call (T>0) that states a seed is sent with its own per-call seed instead (hbench.seeds), unless
+the run's condition states decoding.seed_mode "shared". The callback replaces the seed in the request body
+LiteLLM is about to send: log_pre_api_call receives that very dict (LiteLLM 1.82.6, verified by
+tests/test_seeds.py). `log validate` checks the seeds actually sent, so a route where this did not take effect
+shows up as calls sharing one seed.
 """
 
 from __future__ import annotations
@@ -22,10 +28,16 @@ from urllib.parse import urlparse
 
 from litellm.integrations.custom_logger import CustomLogger
 
-from ..llm.normalize import normalize_openai, normalize_usage_only
+from ..llm.client import derive_call_seed
+from ..llm.normalize import decoding_native, decoding_openai, normalize_openai, normalize_usage_only
 from ..llm.record import record_llm_call
+from ..seeds import SEED_RULE, deriver_for, seed_mode
 from .writer import RunLog
 
+# litellm_call_id -> seed base, for calls whose seed was already derived: with several loggers installed in one
+# process, only the first derives (a second would derive from the derived seed)
+_DERIVED: dict[str, int] = {}
+_DERIVED_LOCK = threading.Lock()
 PARENT_SPAN: contextvars.ContextVar[str | None] = contextvars.ContextVar("hbench_parent_span", default=None)
 STEP: contextvars.ContextVar[int | None] = contextvars.ContextVar("hbench_step", default=None)
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
@@ -72,13 +84,32 @@ class HBenchLiteLLMLogger(CustomLogger):
         self._done: set[str] = set()
         self._requests: dict[str, object] = {}
         self._pending: set[str] = set()
+        self._seed_base: dict[str, int] = {}
         self._lock = threading.Lock()
+        self.active = True  # False after uninstall: LiteLLM may still hold the logger in its own lists
+        self.seed_mode = seed_mode(getattr(log, "condition", None))
+        self._seeds = deriver_for(log)
 
     def log_pre_api_call(self, model, messages, kwargs):
+        if not self.active:
+            return
         # Some routes (e.g. ollama_chat in 1.82.6) replace additional_args after the call, dropping the
         # request body, so keep it from here.
         body = (kwargs.get("additional_args") or {}).get("complete_input_dict")
         call_id = kwargs.get("litellm_call_id")
+        if isinstance(body, dict) and self.seed_mode != "shared":
+            with _DERIVED_LOCK:  # the live request dict: the seed set here is the one sent
+                if call_id and call_id in _DERIVED:
+                    base = _DERIVED[call_id]
+                else:
+                    dec = decoding_native(body) if isinstance(body.get("options"), dict) else decoding_openai(body)
+                    base = derive_call_seed(body, dec, self._seeds, self.caller)
+                    if base is not None and call_id:
+                        _DERIVED[call_id] = base
+                        while len(_DERIVED) > 10000:  # only calls in flight matter
+                            _DERIVED.pop(next(iter(_DERIVED)))
+            if base is not None and call_id:
+                self._seed_base[call_id] = base
         if call_id:
             with self._lock:
                 self._pending.add(call_id)
@@ -99,18 +130,21 @@ class HBenchLiteLLMLogger(CustomLogger):
     def _emit(self, kwargs, response_obj, start_time, end_time, failed: bool):
         call_id = kwargs.get("litellm_call_id")
         with self._lock:  # LiteLLM may report one call through both its sync and async handlers
+            if not self.active and call_id not in self._pending:
+                return  # a call made after uninstall
             if call_id in self._done:
                 return
             if call_id:
                 self._done.add(call_id)
             request_body = self._requests.pop(call_id, None)
+            base = self._seed_base.pop(call_id, None)
         try:
-            self._write(kwargs, response_obj, start_time, end_time, failed, call_id, request_body)
+            self._write(kwargs, response_obj, start_time, end_time, failed, call_id, request_body, base)
         finally:
             with self._lock:  # only now is the call's event on disk, so wait() may return
                 self._pending.discard(call_id)
 
-    def _write(self, kwargs, response_obj, start_time, end_time, failed, call_id, request_body):
+    def _write(self, kwargs, response_obj, start_time, end_time, failed, call_id, request_body, seed_base=None):
         if request_body is None:
             request_body = _plain((kwargs.get("additional_args") or {}).get("complete_input_dict"))
         slo = kwargs.get("standard_logging_object") or {}
@@ -148,7 +182,8 @@ class HBenchLiteLLMLogger(CustomLogger):
                         api_base=api_base, model=kwargs.get("model") or slo.get("model"), request=request_body,
                         response=response, normalized=normalized, latency_s=latency, error=error,
                         parent_id=PARENT_SPAN.get(), step=STEP.get(), litellm_call_id=call_id,
-                        cloud_call=not is_local(api_base, provider))
+                        cloud_call=not is_local(api_base, provider),
+                        **({"seed_base": seed_base, "seed_rule": SEED_RULE} if seed_base is not None else {}))
 
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
         self._emit(kwargs, response_obj, start_time, end_time, failed=False)
@@ -174,6 +209,13 @@ def uninstall(cb: HBenchLiteLLMLogger, timeout: float = 10.0) -> bool:
     """Wait for pending callbacks, then remove the logger. False if some call was never reported."""
     import litellm
     ok = cb.wait(timeout)
-    if cb in litellm.callbacks:
-        litellm.callbacks.remove(cb)
+    cb.active = False
+    cb._seed_base.clear()
+    # LiteLLM copies litellm.callbacks into its per-event lists on the first call; leaving the logger there would
+    # write later calls (of another run) into this run's log
+    for name in ("callbacks", "input_callback", "success_callback", "failure_callback", "_async_success_callback",
+                 "_async_failure_callback", "_async_input_callback"):
+        lst = getattr(litellm, name, None)
+        while isinstance(lst, list) and cb in lst:
+            lst.remove(cb)
     return ok

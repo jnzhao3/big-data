@@ -116,8 +116,22 @@ class RunLog:
 
     @classmethod
     def attach(cls, run_dir: str | Path, proc: str) -> "RunLog":
-        """Another process of an existing run (e.g. the MCP server) writes its own events file."""
-        return cls(run_dir, Path(run_dir).name, proc)
+        """Another process of an existing run (e.g. the MCP server) writes its own events file. It takes the run's
+        condition and effective decoding from the driver's run header, so clients in this process use the run's
+        settings (decoding, seed_mode, per_replicate seed)."""
+        log = cls(run_dir, Path(run_dir).name, proc)
+        head = Path(run_dir) / "events.driver.jsonl"
+        if head.exists():
+            with open(head) as f:
+                first = f.readline()
+            try:
+                h = json.loads(first)
+            except json.JSONDecodeError:
+                h = {}
+            if h.get("type") == "run_header":
+                log.condition = h.get("condition")
+                log.effective_decoding = h.get("effective_decoding") or {}
+        return log
 
     def _index(self, entry: dict) -> None:
         line = json.dumps({"run_id": self.run_id, "ts": datetime.now(timezone.utc).isoformat(), **entry})

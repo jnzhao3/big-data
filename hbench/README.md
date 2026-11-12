@@ -150,7 +150,12 @@ From Python: `hbench.score_sm.score_sm(records, Data(), "clark")` and `hbench.sc
 
 **Conditions.** `make_condition` takes the namespaces `method`, `model`, `decoding`, `engine` and `data`, plus `replicate`:
 - `decoding.temperature` must always be stated: the server default differs by endpoint (0.8 on `/api/chat`, 1.0 on `/v1`).
-- `decoding.seed` is an integer, `null`, or `"per_replicate"` (each replicate samples with its replicate number as seed).
+- `decoding.seed` is an integer, `null`, or `"per_replicate"` (each replicate samples with its replicate number as seed). It is the run's base seed:
+  - llama-server reseeds its sampler with each request's seed. One seed on every call would make every call draw the same random number at the same token position, so their T>0 samples would be correlated.
+  - So every sampled call (T>0) is sent with its own seed, derived from the base, the process and caller, the prompt and how often that prompt came before (`hbench.seeds`). `LLMClient`, the LiteLLM callback and `hbench replay` all do this; greedy calls (T=0) are sent the stated seed unchanged.
+  - A run is reproducible from its base seed. A fixed integer seed at T>0 gives every replicate the same draws: use `"per_replicate"` for independent repeats.
+  - `decoding.seed_mode: "shared"` sends the stated seed on every call, for experiments about shared seeds.
+  - `log validate` fails a run whose sampled calls with different prompts share one seed. `stability` drops its alarm and intervals when calls shared seeds, or when replicates sampled the same prompts with the same seeds (copies, not independent replicates).
 - Replicates of one condition share a `condition_id`, which is how `stability` groups them.
 
 **Engine protocols** (`engine.protocol`):

@@ -11,7 +11,9 @@ num_ctx defaults to 32768, the context /v1 gets for qwen2.5:14b, so both transpo
 instead of reloading the model whenever a caller asks for a different context.
 
 With a log opened by start_run, the client takes its decoding from the run's condition unless it is given
-one (a "per_replicate" seed resolved), so the settings are stated once. It performs the per-call action of the
+one (a "per_replicate" seed resolved), so the settings are stated once. A stated seed is a base: every sampled
+call (T>0) is sent with its own seed derived from it (hbench.seeds), unless the condition states
+decoding.seed_mode "shared". send() sends a body exactly as given. It performs the per-call action of the
 run's engine protocol (hbench.design.PROTOCOLS): with a log
 opened by start_run under protocol "cold" it unloads the model before every call. Unloads are logged as
 engine_action events, so a run's log shows every change of engine state it caused.
@@ -63,6 +65,23 @@ class LLMResult:
                              prompt_sha256=self.prompt_sha256, key=key, caller=self.caller, **extra)
 
 
+def _seed_slot(body: dict) -> dict:
+    """The part of a request body that holds the sampler settings: options on /api/chat, the body on /v1."""
+    return body["options"] if isinstance(body.get("options"), dict) else body
+
+
+def derive_call_seed(body: dict, normalized_decoding: dict, deriver, caller: str | None) -> int | None:
+    """Replace a sampled request's stated seed with its per-call seed, in place. Returns the base, or None
+    when nothing was replaced (no seed, or a greedy call)."""
+    from ..seeds import is_sampled
+    slot = _seed_slot(body)
+    base = slot.get("seed")
+    if base is None or isinstance(base, bool) or not isinstance(base, int) or not is_sampled(slot.get("temperature")):
+        return None
+    slot["seed"] = deriver.derive(base, caller, prompt_sha256(body, normalized_decoding))
+    return base
+
+
 def _condition_decoding(log) -> dict:
     """The decoding a run's condition states, as client settings ({} without one)."""
     cond = getattr(log, "condition", None) or {}
@@ -84,7 +103,10 @@ class LLMClient:
         if transport not in ENDPOINTS:
             raise ValueError(f"transport must be one of {sorted(ENDPOINTS)}")
         self.log, self.model, self.transport, self.base = log, model, transport, base.rstrip("/")
+        from ..seeds import deriver_for, seed_mode
         self.decoding = dict(decoding) if decoding is not None else _condition_decoding(log)
+        self.seed_mode = self.decoding.pop("seed_mode", None) or seed_mode(getattr(log, "condition", None))
+        self._seeds = deriver_for(log)
         self.num_ctx, self.top_logprobs, self.timeout = num_ctx, top_logprobs, timeout
         self.per_call = per_call or protocol_actions(getattr(log, "condition", None))[1]
 
@@ -125,8 +147,13 @@ class LLMClient:
              format=None, decision: dict | None = None, **decoding) -> LLMResult:
         """decision: how to find the method's decision in the output (see hbench.decisions.parser_from_spec),
         stored with the call so replay and analysis tools can extract it from the log alone."""
+        from ..seeds import SEED_RULE
         body = self.build_request(messages, tools=tools, format=format, **decoding)
         extra = {"decision_spec": decision} if decision else {}
+        if self.seed_mode != "shared":
+            base = derive_call_seed(body, NORMALIZERS[self.transport](body, None)["decoding"], self._seeds, caller)
+            if base is not None:
+                extra.update(seed_base=base, seed_rule=SEED_RULE)
         return self.send(body, caller=caller, step=step, parent_id=parent_id, **extra)
 
     def send(self, body: dict, *, caller: str, step: int | None = None, parent_id: str | None = None,

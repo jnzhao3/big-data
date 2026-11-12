@@ -143,6 +143,8 @@ def normalize_openai(request: dict, response: dict | None) -> dict:
 def normalize_usage_only(request: dict, response: dict | None, reason: str) -> dict:
     """Routes that expose only text and token counts (e.g. LiteLLM's ollama_chat/)."""
     out = normalize_openai(request or {}, response)
+    if isinstance((request or {}).get("options"), dict):  # a native body (LiteLLM's ollama_chat/ route)
+        out["decoding"] = decoding_native(request)
     out["unavailable"].update({"token_logprobs": reason, "cached_tokens": reason})
     if out["engine"]:
         out["engine"].update(cached_tokens=None, computed_tokens=None, path_class="unknown")

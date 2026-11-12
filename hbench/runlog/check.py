@@ -26,7 +26,8 @@ def check_run(run_dir: str | Path) -> dict:
     numbers are contiguous, every blob exists, the driver ended with run_end, no call left the machine, the
     engine matched env/engine-lock.json, (when the run was audited) the server log shows no foreign requests,
     no unlogged calls, no truncation and the requested sampler settings, and T=0 calls with the same input and
-    lineage have identical logprobs."""
+    lineage have identical logprobs, and sampled calls with different prompts do not share one seed
+    (hbench.seeds.check_seeds, reported under "seeds" with its notes)."""
     run_dir = Path(run_dir)
     events = read_events(run_dir)
     if not events:
@@ -69,5 +70,9 @@ def check_run(run_dir: str | Path) -> dict:
         for v in lineage_check([run_dir])["violations"]:
             problems.append(f"lineage: same lineage, different logprobs: {[c['span_id'] for c in v['calls']]} "
                             f"({v['calls'][0]['lineage']})")
+    from ..seeds import check_seeds
+    seeds = check_seeds(events)
+    problems += [f"seeds: {p}" for p in seeds["problems"]]
     return {"run_dir": str(run_dir), "problems": problems, "counts": counts, "failed_llm_calls": failed,
-            "processes": sorted(by_proc), "audited": bool(audit) and "unavailable" not in (audit or {})}
+            "processes": sorted(by_proc), "audited": bool(audit) and "unavailable" not in (audit or {}),
+            "seeds": seeds}

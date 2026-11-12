@@ -17,6 +17,11 @@ compare() reports text identity, the first diverging token, logprob shifts at ch
 candidates, and, when the source call carries a decision_spec (or a parser is registered for its caller), the
 decision margins and whether the decision flipped: one row per decision the spec names (a tool call's name and
 its arguments are separate decisions), or one row without decision fields when there is none.
+
+Seeds (hbench.seeds): a sampled replay call is sent with its own per-call seed, by the rule natural runs use, so
+calls are independent and `--seeds s` sends exactly the seeds a natural run with base seed s sent. Without
+--seeds, a sampled source call is resent with its logged seed, and a greedy source call resampled at T>0 takes its
+logged seed as the base.
 """
 
 from __future__ import annotations
@@ -39,6 +44,35 @@ OVERRIDABLE = {"ollama": ("temperature", "seed", "top_p", "top_k", "min_p"),
 UNRELATED = [{"role": "user", "content": "Write one sentence about rivers."}]
 _TRANSPORT = {"ollama": "ollama", "openai_v1": "openai_v1", "litellm/openai": "openai_v1",
               "litellm/ollama_chat": "ollama", "litellm/ollama": "ollama"}
+
+
+def replay_seeds(calls: list[dict], blobs: BlobStore, seed: int | None, overrides: dict | None) -> list:
+    """(seed to send or None to keep the logged one, its base or None) per source call, in order.
+
+    seed: the replay's base seed (--seeds, or --set seed). A sampled call whose source seed was derived from
+    the same base is sent its logged seed: exactly what the natural run sent. Other sampled calls get per-call
+    seeds by the rule natural runs use, counting repeated prompts per process over the whole source run.
+    Without a base, a sampled source call keeps its logged seed and a greedy one resampled at T>0 takes its
+    logged seed as the base."""
+    from .llm.record import prompt_sha256
+    from .seeds import SeedDeriver, is_sampled
+    derivers, out = {}, []
+    for ev in calls:
+        dec = ev.get("decoding") or {}
+        temp = (overrides or {}).get("temperature", dec.get("temperature"))
+        if not is_sampled(temp):
+            out.append((seed, None))
+            continue
+        base = seed if seed is not None else None if is_sampled(dec.get("temperature")) else dec.get("seed")
+        if base is None:
+            out.append((None, None))
+            continue
+        d = derivers.setdefault(ev.get("proc"), SeedDeriver(ev.get("proc")))
+        prompt = ev.get("prompt_sha256") or prompt_sha256(blobs.get(ev["request_raw"]), dec)
+        derived = d.derive(base, ev.get("caller"), prompt)  # always counted, so k stays aligned with the source
+        logged = dec.get("seed") if ev.get("seed_rule") and ev.get("seed_base") == base else None
+        out.append((logged if logged is not None else derived, base))
+    return out
 
 
 def load_calls(run_dir) -> tuple[list[dict], BlobStore]:
@@ -75,7 +109,9 @@ def apply_overrides(request: dict, transport: str, overrides: dict | None) -> di
 
 
 def replay_call(event: dict, blobs: BlobStore, client: LLMClient, protocol: str = "as_is", step: int | None = None,
-                overrides: dict | None = None):
+                overrides: dict | None = None, seed_base: int | None = None):
+    """seed_base: the base the per-call seed in overrides was derived from (replay_seeds), recorded with the
+    call."""
     if protocol not in PROTOCOLS:
         raise ValueError(f"protocol must be one of {sorted(PROTOCOLS)}")
     request = apply_overrides(blobs.get(event["request_raw"]), event.get("transport"), overrides)
@@ -90,7 +126,10 @@ def replay_call(event: dict, blobs: BlobStore, client: LLMClient, protocol: str 
             if client.transport == "ollama" and "options" in request:
                 body["options"]["num_ctx"] = request["options"].get("num_ctx", body["options"].get("num_ctx"))
             client.send(body, caller="replay:pre")
+    from .seeds import SEED_RULE
     extra = {"overrides": overrides} if overrides else {}
+    if seed_base is not None:
+        extra.update(seed_base=seed_base, seed_rule=SEED_RULE)
     return client.send(request, caller=f"replay:{protocol}", parent_id=event["span_id"], step=step,
                        replay_of=event["span_id"], protocol=protocol, **extra)
 

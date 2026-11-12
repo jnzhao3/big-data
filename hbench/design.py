@@ -48,6 +48,7 @@ LEASE_PATH = Path(os.environ.get("HBENCH_LEASE", Path.home() / ".hbench" / "olla
 
 def make_condition(method: dict, model: dict, decoding: dict, engine: dict, data: dict, replicate: int = 0,
                    block=None, order=None, **extra) -> dict:
+    decoding = {k: v for k, v in decoding.items() if not (k == "seed_mode" and v == "per_call")}  # the default
     cond = {"method": dict(method), "model": dict(model), "decoding": dict(decoding), "engine": dict(engine),
             "data": dict(data), "replicate": replicate, "block": block, "order": order}
     if extra:
@@ -67,6 +68,8 @@ def validate_condition(cond: dict) -> list[str]:
     seed = dec.get("seed")
     if seed is not None and seed != SEED_PER_REPLICATE and (not isinstance(seed, int) or isinstance(seed, bool)):
         probs.append(f"decoding.seed must be an integer, None or {SEED_PER_REPLICATE!r}")
+    if dec.get("seed_mode") is not None and dec["seed_mode"] not in ("per_call", "shared"):
+        probs.append("decoding.seed_mode must be 'per_call' (the default) or 'shared' (see hbench.seeds)")
     proto = (cond.get("engine") or {}).get("protocol", "natural")
     if proto not in PROTOCOLS:
         probs.append(f"engine.protocol must be one of {tuple(PROTOCOLS)}")

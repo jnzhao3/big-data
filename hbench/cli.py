@@ -131,7 +131,18 @@ def _read_items(path) -> pd.DataFrame:
     df = pd.read_csv(path, dtype=str, keep_default_na=False)
     if "condition_id" not in df:
         df["condition_id"] = _run_condition_id(Path(path).parent) or ""
+    df["seed_independent"] = _run_seed_independent(Path(path).parent)
+    df["run_dir"] = str(Path(path).parent)
     return df
+
+
+def _run_seed_independent(run_dir: Path):
+    """Were the run's sampled calls independent (hbench.seeds.check_seeds)? None without a run log here."""
+    from .runlog.writer import read_events
+    from .seeds import check_seeds
+    if not any(run_dir.glob("events.*.jsonl")):
+        return None
+    return check_seeds(read_events(run_dir))["independent"]
 
 
 def cmd_stability(a) -> int:
@@ -149,7 +160,18 @@ def cmd_stability(a) -> int:
     report = {}
     for (kind, study, cid), g in long.groupby(["kind", "study", "condition_id"], dropna=False):
         key = f"{kind}:{study}" + (f":{cid}" if cid else "")
-        report[key] = stability_report(g[cols], reference=reference, endpoint=a.endpoint)
+        # False if any run's calls shared seeds, or two runs sampled the same prompt with the same seed (copies,
+        # not replicates); True only if every run was checked
+        flags = set(g["seed_independent"])
+        independent = False if False in flags else True if flags == {True} else None
+        if independent is not False and g["run_dir"].nunique() > 1:
+            from .runlog.writer import read_events
+            from .seeds import check_replicates
+            across = check_replicates({d: read_events(d) for d in g["run_dir"].unique()
+                                       if any(Path(d).glob("events.*.jsonl"))})["independent"]
+            independent = False if across is False else independent
+        report[key] = stability_report(g[cols], reference=reference, endpoint=a.endpoint,
+                                       seed_independent=independent)
     text = json.dumps(report, indent=1, default=str)
     if a.out:
         _write_new(Path(a.out), text + "\n", a.force)
@@ -220,7 +242,8 @@ def _parse_seeds(text: str | None) -> list:
 def cmd_replay(a) -> int:
     from .design import make_condition
     from .engine.lineage import _audit_rows
-    from .replay import _TRANSPORT, RUN_PROTOCOL, api_base, client_for, compare, load_calls, replay_call
+    from .replay import (_TRANSPORT, RUN_PROTOCOL, api_base, client_for, compare, load_calls, replay_call,
+                         replay_seeds)
     from .runlog.session import start_run
     from .runlog.writer import read_events
 
@@ -231,6 +254,7 @@ def cmd_replay(a) -> int:
         sys.exit(f"call indices {bad} out of range: the run has {len(calls)} replayable calls")
     if "cold_start" in a.protocol and idx != list(range(len(idx))):
         sys.exit("cold_start replays a prefix of the run: indices must be 0..k (a gap would change the lineage)")
+    all_calls = calls
     calls = [calls[i] for i in idx]
     if not calls:
         sys.exit("no replayable llm_call events in that run")
@@ -239,17 +263,24 @@ def cmd_replay(a) -> int:
     study = (src_cond.get("data") or {}).get("study") or (header.get("task") or {}).get("study") or "unknown"
     model = blobs.get(calls[0]["request_raw"]).get("model")
     overrides, seeds = _parse_set(a.set), _parse_seeds(a.seeds)
+    set_seed = overrides.pop("seed", None)  # --set seed=N is a base like --seeds N: never one seed on every call
+    if set_seed is not None:
+        if seeds != [None]:
+            sys.exit("give the seed with --seeds or --set seed, not both")
+        seeds = [int(set_seed)]
     if "cold_start" in a.protocol and a.repeat > 1 and seeds != [None]:
         sys.exit("cold_start with --seeds runs one cold replay per seed; drop --repeat")
     rows = []
     for protocol, seed, rep_run in [(p, s, r) for p in a.protocol for s in seeds
                                     for r in (range(a.repeat) if p == "cold_start" else [None])]:
         # each seed, and under cold_start each repeat, is one replicate of the replay condition: its own run, so
-        # every cold_start repeat really starts cold
-        ov = {**overrides, **({"seed": seed} if seed is not None else {})}
+        # every cold_start repeat really starts cold. The replicate's seed is a base: each sampled call gets its
+        # own seed (hbench.seeds), since llama-server reseeds per request and a shared seed correlates samples
+        call_seeds = replay_seeds(all_calls, blobs, seed, overrides)
+        src_name = Path(a.run_dir).name
         src_dec = calls[0].get("decoding") or {}
         cond = make_condition(
-            method={"name": "replay", "protocol": protocol, "source_run": Path(a.run_dir).name,
+            method={"name": "replay", "protocol": protocol, "source_run": src_name,
                     **({"overrides": overrides} if overrides else {})},
             model={"name": model},
             decoding={"temperature": overrides.get("temperature", src_dec.get("temperature")),
@@ -264,15 +295,18 @@ def cmd_replay(a) -> int:
         try:
             for rep in (range(a.repeat) if rep_run is None else [rep_run]):
                 for i, ev in zip(idx, calls):
-                    res = replay_call(ev, blobs, client_for(ev, log), protocol, step=i, overrides=ov or None)
-                    done.append((rep, i, ev, res.span_id))
+                    cs, base = call_seeds[i]
+                    ov = {**overrides, **({"seed": cs} if cs is not None else {})}
+                    res = replay_call(ev, blobs, client_for(ev, log), protocol, step=i, overrides=ov or None,
+                                      seed_base=base)
+                    done.append((rep, i, ev, res.span_id, cs))
         finally:
             log.close()
         by_span = {e.get("span_id"): e for e in read_events(log.run_dir)}
         both = _Blobs(blobs, log.blobs)
         lin_src, lin_rep = _audit_rows(Path(a.run_dir)), _audit_rows(log.run_dir)
-        mine = [{"protocol": protocol, "seed": seed, "repeat": rep, "source_call": i, **row}
-                for rep, i, ev, span in done
+        mine = [{"protocol": protocol, "seed": seed, "call_seed": cs, "repeat": rep, "source_call": i, **row}
+                for rep, i, ev, span, cs in done
                 for row in compare(ev, by_span[span], both, lin_src.get(ev["span_id"]), lin_rep.get(span))]
         rows += mine
         pd.DataFrame(mine).to_csv(log.run_dir / "replay_compare.csv", index=False)
