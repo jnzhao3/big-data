@@ -4,6 +4,7 @@ stands in for both the agent model and BDI-Kit's LLM matcher. The MCP server is 
 
 import asyncio
 import json
+import uuid
 import os
 import subprocess
 import sys
@@ -42,7 +43,8 @@ class ScriptedOpenAI(BaseHTTPRequestHandler):
             msg = ScriptedOpenAI.script.pop(0) if ScriptedOpenAI.script else {"content": "| a | b |\n|---|---|\n| x | y |"}
         else:
             msg = {"content": '{"term": "male", "score": 0.9}'}
-        tcs = [{"id": f"call_{i}_{len(ScriptedOpenAI.seen)}", "type": "function",
+        # random ids, as Ollama gives them: a later request echoes them back
+        tcs = [{"id": f"call_{uuid.uuid4().hex[:8]}", "type": "function",
                 "function": {"name": n, "arguments": json.dumps(a)}} for i, (n, a) in enumerate(msg.get("tool_calls", []))]
         out = {"id": "chatcmpl-x", "object": "chat.completion", "created": 1, "model": body.get("model"),
                "choices": [{"index": 0, "finish_reason": "tool_calls" if tcs else "stop", "logprobs": None,
@@ -451,3 +453,29 @@ def test_drop_block_ids_keeps_everything_else():
     out, n = run_agent.drop_block_ids(msgs)
     assert n == 1 and out[0]["content"] == [{"type": "text", "text": "row"}, {"type": "text", "text": "r2"}]
     assert out[0]["tool_call_id"] == "c1" and out[1] == msgs[1] and msgs[0]["content"][0]["id"] == "lc_123"
+
+
+def test_renumber_tool_call_ids_by_position():
+    hist = [{"role": "user", "content": "go"},
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"id": "call_ab12", "type": "function", "function": {"name": "a", "arguments": "{}"}},
+                {"id": "call_cd34", "type": "function", "function": {"name": "b", "arguments": "{}"}}]},
+            {"role": "tool", "tool_call_id": "call_cd34", "content": "rb"},
+            {"role": "tool", "tool_call_id": "call_ab12", "content": "ra"},
+            {"role": "assistant", "content": "", "tool_calls": [{"id": "call_ef56", "type": "function",
+                                                                 "function": {"name": "c", "arguments": "{}"}}]},
+            {"role": "tool", "tool_call_id": "call_ef56", "content": "rc"},
+            {"role": "tool", "tool_call_id": "orphan", "content": "x"}]
+    out, n = run_agent.renumber_tool_call_ids(hist)
+    assert n == 3
+    assert [tc["id"] for tc in out[1]["tool_calls"]] == ["call_0_0", "call_0_1"]
+    assert [m["tool_call_id"] for m in out[2:4]] == ["call_0_1", "call_0_0"]
+    assert out[4]["tool_calls"][0]["id"] == "call_1_0" and out[5]["tool_call_id"] == "call_1_0"
+    assert out[6] == hist[6] and out[0] == hist[0]
+    assert hist[1]["tool_calls"][0]["id"] == "call_ab12"            # input not mutated
+    other = [dict(m) for m in hist]                                  # same history with other random ids
+    other[1] = {**hist[1], "tool_calls": [{**hist[1]["tool_calls"][0], "id": "call_zz"},
+                                          {**hist[1]["tool_calls"][1], "id": "call_yy"}]}
+    other[2] = {**hist[2], "tool_call_id": "call_yy"}
+    other[3] = {**hist[3], "tool_call_id": "call_zz"}
+    assert run_agent.renumber_tool_call_ids(other)[0][:4] == out[:4]

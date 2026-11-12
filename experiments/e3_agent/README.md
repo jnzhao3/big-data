@@ -41,6 +41,7 @@ Tasks (`tasks.py`, version `task_v1`): `smoke` (list the schema matchers), `sm` 
 | `qwen3.8:27b` (`--model qwen3.8-27b-bdikit`) | derived `qwen3.8-27b-bdikit` (`Modelfile.qwen3.8-27b-bdikit`): `num_ctx 32768` only | the context size would otherwise follow Ollama's memory-based default; the built-in renderer and parser need no fix |
 | past thinking sent back as `{"type": "thinking"}` content blocks | dropped from the history (`--history-thinking strip`, the default; no-op for models that do not think) | Ollama `/v1` rejects those blocks, so a thinking model dies at its second step; Qwen's own template drops past thinking too |
 | tool results sent with LangChain's random block ids (`lc_<uuid>`) | ids dropped from the request | they are not part of the message (Ollama renders only the text) but would change every run's prompt hash, and so a sampled call's per-call seed |
+| tool-call ids as Ollama gives them (random, echoed back in the next request) | ids renamed `call_<k>_<j>` by position in the request copy (the agent keeps Ollama's ids) | otherwise a sampled episode gets other per-call seeds from its second agent call on, so a repeat with the same base seed is not the same run |
 | `streaming=True` | `streaming=False` (`--streaming` restores it) | the logged response is the one the agent used, with logprobs |
 | shared result cache | one per run | the cache would hide matcher variance |
 

@@ -195,6 +195,33 @@ def strip_history_thinking(message_dicts: list[dict]) -> tuple[list[dict], int]:
     return out, n
 
 
+def renumber_tool_call_ids(message_dicts: list[dict]) -> tuple[list[dict], int]:
+    """Replace the tool-call ids in the history sent to the model with fixed names: call_<k>_<j> for the j-th tool
+    call of the k-th assistant message, in both the assistant's tool_calls and the matching tool messages.
+
+    Ollama gives every tool call a random id and the next request echoes it back, so the request body (the prompt
+    hash, and with it a sampled call's per-call seed, hbench.seeds) would differ in every run from the second agent
+    call on. The names depend only on the position in the history, so they are the same in every request of a run
+    and in every run. The agent's own messages keep Ollama's ids (agent_step and client tool_call events log those);
+    only the request copy is renamed. Ids of tool messages with no matching call are left alone. Returns the new
+    list and the number of ids renamed."""
+    out, ren, k = [], {}, 0
+    for m in message_dicts:
+        if m.get("role") == "assistant" and m.get("tool_calls"):
+            tcs = []
+            for j, tc in enumerate(m["tool_calls"]):
+                if isinstance(tc, dict) and tc.get("id") is not None:
+                    ren[tc["id"]] = f"call_{k}_{j}"
+                    tc = {**tc, "id": ren[tc["id"]]}
+                tcs.append(tc)
+            m = {**m, "tool_calls": tcs}
+            k += 1
+        elif m.get("role") == "tool" and m.get("tool_call_id") in ren:
+            m = {**m, "tool_call_id": ren[m["tool_call_id"]]}
+        out.append(m)
+    return out, len(ren)
+
+
 def drop_block_ids(message_dicts: list[dict]) -> tuple[list[dict], int]:
     """Drop the random "id" ("lc_<uuid>") that langchain_mcp_adapters puts on every content block of a tool result.
 
@@ -223,7 +250,7 @@ def build_condition(a) -> dict:
         method={"name": "bdikit_agent", "bdikit": "0.11.0", "task": a.task, "prompt_id": TASK_VERSION,
                 "prompt_variant": a.prompt_variant, "recursion_limit": a.recursion_limit, "max_followups": a.max_followups, "tool_output": "raw",
                 "history_clean": False, "history_thinking": a.history_thinking,
-                "content_block_ids": "dropped", "mcp_server": "hbench.runlog.mcp_logged"},
+                "content_block_ids": "dropped", "tool_call_ids": "renumbered", "mcp_server": "hbench.runlog.mcp_logged"},
         model={"name": a.model, "tool_llm": a.model},
         decoding={"temperature": a.temperature, "top_p": a.top_p, "seed": a.seed,
                   "tool_llm_temperature": tool_t, "tool_llm_top_p": tool_p},
@@ -297,10 +324,12 @@ async def drive(a, log, prompt: str, task_msg: str, timing: dict) -> dict:
                 strip_thinking = a.history_thinking == "strip"
 
                 class ChatLiteLLMHistory(ChatLiteLLM):
-                    """The history as sent: no LangChain block ids; past thinking dropped (--history-thinking)."""
+                    """The history as sent: no LangChain block ids, tool-call ids renamed by position, past thinking dropped
+                    (--history-thinking)."""
                     def _create_message_dicts(self, messages, stop):
                         dicts, params = super()._create_message_dicts(messages, stop)
                         dicts, n_ids = drop_block_ids(dicts)
+                        dicts, _ = renumber_tool_call_ids(dicts)
                         n_think = 0
                         if strip_thinking:
                             dicts, n_think = strip_history_thinking(dicts)
