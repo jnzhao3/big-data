@@ -301,3 +301,70 @@ def test_explicit_per_call_mode_is_the_default_condition():
     from hbench.design import condition_id
     assert condition_id(_cond({"temperature": 0.8, "seed": 1, "seed_mode": "per_call"})) == \
         condition_id(_cond({"temperature": 0.8, "seed": 1}))
+
+
+def _episode(ids, endpoint="/v1/chat/completions"):
+    """The second request of an agent episode: the history carries the server's tool-call ids."""
+    a, b = ids
+    calls = [{"id": a, "type": "function", "function": {"name": "f", "arguments": '{"x": 1}'}},
+             {"id": b, "type": "function", "function": {"name": "g", "arguments": '{"y": 2}'}}]
+    if endpoint == "/api/chat":
+        for c in calls:
+            c["function"]["arguments"] = json.loads(c["function"]["arguments"])
+    return [{"role": "user", "content": "q"}, {"role": "assistant", "content": "", "tool_calls": calls},
+            {"role": "tool", "tool_call_id": a, "content": "r1"}, {"role": "tool", "tool_call_id": b, "content": "r2"}]
+
+
+@pytest.mark.parametrize("endpoint", ["/v1/chat/completions", "/api/chat"])
+def test_prompt_hash_ignores_random_tool_call_ids(endpoint):
+    from hbench.llm.normalize import canonical_tool_ids, generation_key, prompt_key
+    from hbench.llm.record import prompt_sha256
+    from hbench.runlog.writer import sha256_json
+    m1, m2 = _episode(("call_x1vkyext", "call_4q34kdk2"), endpoint), _episode(("call_aaaa", "call_bbbb"), endpoint)
+    req = lambda m: {"model": "m", "messages": m}
+    assert prompt_sha256(req(m1), {}) == prompt_sha256(req(m2), {})
+    assert sha256_json(generation_key("m", m1, {})) != sha256_json(generation_key("m", m2, {}))  # exact input
+    canon = canonical_tool_ids(m1)
+    assert [c["id"] for c in canon[1]["tool_calls"]] == ["call_0", "call_1"]
+    assert [canon[2]["tool_call_id"], canon[3]["tool_call_id"]] == ["call_0", "call_1"]
+    assert m1[1]["tool_calls"][0]["id"] == "call_x1vkyext"                       # the request is not modified
+    swapped = _episode(("call_x1vkyext", "call_4q34kdk2"), endpoint)
+    swapped[2]["tool_call_id"], swapped[3]["tool_call_id"] = swapped[3]["tool_call_id"], swapped[2]["tool_call_id"]
+    assert prompt_sha256(req(swapped), {}) != prompt_sha256(req(m1), {})           # which result answers which call
+    plain = [{"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}]
+    assert canonical_tool_ids(plain) == plain                                     # no ids: earlier hashes unchanged
+    assert prompt_sha256(req(plain), {}) == sha256_json(
+        {"model": "m", "messages": plain, "tools": None, "format": None, "think": None})
+    assert prompt_key("m", None, None, None)["messages"] == []
+
+
+def test_seeded_agent_episode_repeats_with_new_tool_call_ids(tmp_path, server):
+    """Two runs of one seeded T>0 episode send the same seeds although the server gave other tool-call ids."""
+    runs = []
+    for name, ids in (("a", ("call_x1vkyext", "call_4q34kdk2")), ("b", ("call_9zz", "call_8yy"))):
+        MockOllama.seen = []
+        log = _start(tmp_path, server, _cond({"temperature": 0.8, "seed": 1}), name)
+        c = LLMClient(log, "m", base=server)
+        c.chat([{"role": "user", "content": "q"}], caller="agent")
+        c.chat(_episode(ids, "/api/chat"), caller="agent")
+        log.close()
+        runs.append(_sent_seeds())
+    assert runs[0] == runs[1] and len(set(runs[0])) == 2
+
+
+def test_litellm_episode_repeats_with_new_tool_call_ids(tmp_path, server):
+    litellm = pytest.importorskip("litellm")
+    from hbench.runlog import litellm_cb
+    runs = []
+    for name, ids in (("a", ("call_x1vkyext", "call_4q34kdk2")), ("b", ("call_9zz", "call_8yy"))):
+        MockOllama.seen = []
+        log = RunLog.create(tmp_path, "e0", "t", "clark", run_id=name)
+        cb = litellm_cb.install(log, caller="agent")
+        try:
+            litellm.completion(model="openai/m", messages=_episode(ids), api_base=server + "/v1", api_key="x",
+                               temperature=0.8, seed=1)
+            assert cb.wait(10)
+        finally:
+            litellm_cb.uninstall(cb)
+        runs.append([b.get("seed") for p, b in MockOllama.seen if p == "/v1/chat/completions"])
+    assert runs[0] == runs[1] and runs[0][0] != 1

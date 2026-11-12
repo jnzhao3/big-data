@@ -46,7 +46,7 @@ Every call, from `LLMClient` or from LiteLLM (`runlog.litellm_cb`), is one `llm_
 | decoding | the parameters actually sent; `null` if not sent |
 | engine | `prompt_tokens`, `cached_tokens`, `computed_tokens`, `load_ms`, and `path_class`: `cold_full` / `full` / `partial` / `single_token`. A coarse label; the lineage (below) is the full account |
 | output | text, tool calls, finish reason, and `token_logprobs`, a blob of `[token, logprob, [[candidate, logprob], ...]]`. Tool-call arguments are parsed into objects on both endpoints, so the same call compares and hashes the same on both (`/v1` sends a re-serialized JSON string) |
-| hashes | `input_sha256` (what determines generation), `prompt_sha256` (model, messages, tools, format and `think`, without sampling settings: the same prompt at T=0 and at T=0.8 shares it), `request_sha256` (exact bytes), `output_sha256` (text and tool calls), `logprobs_sha256` (bitwise identity) |
+| hashes | `input_sha256` (what determines generation), `prompt_sha256` (model, messages, tools, format and `think`, without sampling settings: the same prompt at T=0 and at T=0.8 shares it; tool-call ids are renamed `call_0`, `call_1`, ... in order of appearance first, because Ollama gives each tool call a random id that the next request sends back. The qwen2.5 template does not render ids, and on qwen3.8-27b T=0 agent episodes with different random ids were bitwise identical. Calls logged before 2026-11-12 hashed the raw ids), `request_sha256` (exact bytes), `output_sha256` (text and tool calls), `logprobs_sha256` (bitwise identity) |
 | `decision_spec` | where the method's decision is in the output, when the caller stated it |
 | `model_sampler` | the model's own sampler settings (its Modelfile `PARAMETER` lines, from the run header's engine snapshot), when the run recorded them |
 | `unavailable` | what this transport could not provide, and why |
@@ -166,7 +166,7 @@ llama-server reseeds its sampler with each request's seed. Calls sent with the s
 Each decision's own probability of changing is unaffected, and so is the expected number of changes. What breaks is everything that assumes independent samples: variances, intervals, the `sampling_check` alarm.
 
 The rule (`call/1`):
-- The seed a condition or caller states is a base. Every sampled call (temperature above 0, or unset) is sent with `call_seed(base, scope, prompt_sha256, k)`: the first 31 bits of a SHA-256.
+- The seed a condition or caller states is a base. Every sampled call (temperature above 0, or unset) is sent with `call_seed(base, scope, prompt_sha256, k)`: the first 31 bits of a SHA-256. prompt_sha256 ignores tool-call ids, so a seeded agent episode at T>0 repeats call for call.
   - `scope` is the process and the caller, such as `driver/method:clark_match`, so two processes of one run that send the same prompt get different seeds.
   - `k` counts that process's earlier calls with the same base, scope and prompt.
 - Calls are independent, a run is reproducible from its base, and the same prompt in two conditions gets the same seed (common random numbers).

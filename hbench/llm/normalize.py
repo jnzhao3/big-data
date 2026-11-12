@@ -163,8 +163,35 @@ def generation_key(model: str, messages, decoding: dict) -> dict:
     return {"model": model, "messages": messages or [], "decoding": dec}
 
 
+def canonical_tool_ids(messages):
+    """messages with tool-call ids renamed call_0, call_1, ... in order of first appearance (an assistant
+    message's tool_calls[].id, a tool message's tool_call_id), so links between calls and results are kept.
+    Ollama gives every tool call a random id that the next request sends back, so without this two runs of
+    one agent episode never share a prompt from the second call on, and get other per-call seeds (a seeded T>0
+    episode could not be repeated). Messages without ids are returned unchanged."""
+    if not isinstance(messages, list):
+        return messages
+    ids: dict = {}
+
+    def canon(i):
+        return ids.setdefault(i, f"call_{len(ids)}")
+
+    out = []
+    for m in messages:
+        if isinstance(m, dict) and isinstance(m.get("tool_calls"), list) and any(
+                isinstance(c, dict) and c.get("id") is not None for c in m["tool_calls"]):
+            m = {**m, "tool_calls": [{**c, "id": canon(c["id"])} if isinstance(c, dict) and c.get("id") is not None
+                                     else c for c in m["tool_calls"]]}
+        if isinstance(m, dict) and m.get("tool_call_id") is not None:
+            m = {**m, "tool_call_id": canon(m["tool_call_id"])}
+        out.append(m)
+    return out
+
+
 def prompt_key(model: str, messages, tools, format, think=None) -> dict:
     """What the model is shown, without the sampling settings (prompt_sha256 is its hash): the same prompt at
     T=0 and T=0.8, or with another seed, shares it, which input_sha256 does not. think changes the rendered
-    prompt, so it is part of it."""
-    return {"model": model, "messages": messages or [], "tools": tools or None, "format": format, "think": think}
+    prompt, so it is part of it. Tool-call ids are canonical (canonical_tool_ids): the server's random ids are not
+    prompt content. input_sha256 keeps the exact messages."""
+    return {"model": model, "messages": canonical_tool_ids(messages) or [], "tools": tools or None, "format": format,
+            "think": think}

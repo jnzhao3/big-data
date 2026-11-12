@@ -11,8 +11,8 @@ which means the endpoint's default above 0) is sent with
 
     call_seed(base, scope, prompt_sha256, k)      rule "call/1": sha256 of the four, first 31 bits
 
-where scope is the process and the caller ("driver/method:clark_match": two processes of one run that send the
-same prompt get different seeds) and k counts earlier calls of that process with the same base, scope and prompt. Calls are
+where prompt_sha256 ignores tool-call ids (Ollama's are random), scope is the process and the caller
+("driver/method:clark_match": two processes of one run that send the same prompt get different seeds) and k counts earlier calls of that process with the same base, scope and prompt. Calls are
 independent, a run is reproducible from its base seed, the same prompt in two conditions gets the same seed
 (common random numbers), and `hbench replay --seeds s` sends exactly the seeds a natural run with base s sent.
 Greedy calls (temperature 0) keep the stated seed: the sampler does not use it, and T=0 requests stay byte-identical
