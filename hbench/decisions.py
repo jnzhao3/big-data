@@ -8,6 +8,9 @@ the value changes everything after it. The margin of a decision is therefore
     margin = min over positions 0..end of the value of  (logprob(chosen token) - logprob(best other candidate))
 
 a guarantee: perturbations smaller than it everywhere cannot change the decision (margin_def "prefix/1").
+margin_free is the same minimum without the constrained positions: with a thinking model under format=json the
+grammar forces the first answer token after </think> (the model wanted a newline), which caps margin at 0 for
+every decision although no perturbation can change a forced token.
 margin_value is the same minimum over the value's own tokens, the definition before E0 v3, kept as a diagnostic;
 positions after the value (a reason text) never count. At T=0 the chosen token is the best one the server
 allowed, so when a constraint such as a format=json grammar ruled out a better-scoring candidate, the gap is
@@ -37,6 +40,8 @@ from typing import Callable
 
 _PARSERS: dict[str, Callable] = {}
 TOOL_CALL_OPEN, TOOL_CALL_CLOSE = "<tool_call>", "</tool_call>"
+THINK_CLOSE = "</think>"
+XML_FUNCTION, XML_PARAMETER_CLOSE = "<function=", "</parameter>"
 
 
 def _as_output(x) -> dict:
@@ -143,40 +148,86 @@ def _key_end(text: str, key: str, pos: int = 0) -> int | None:
     return m.end() if m else None
 
 
-def value_char_span(text: str, value: str, json_key: str | None = None) -> tuple[int, int] | None:
-    """Character span of the decided value in the output. With json_key, the string value right after
-    "json_key": is located (so a value that also appears in a reason text is not confused with it)."""
+def value_char_span(text: str, value: str, json_key: str | None = None, start: int = 0) -> tuple[int, int] | None:
+    """Character span of the decided value in the output, searched from `start`. With json_key, the string value
+    right after "json_key": is located (so a value that also appears in a reason text is not confused with it)."""
     if not text or value is None:
         return None
     if json_key is not None:
-        k = _key_end(text, json_key)
+        k = _key_end(text, json_key, start)
         if k is not None:
             v = text.find('"' + value, k)  # the value's opening quote after the key
             if v >= 0:
                 return v + 1, v + 1 + len(value)
-    i = text.find(value)
+    i = text.find(value, start)
     return (i, i + len(value)) if i >= 0 else None
+
+
+def answer_start(joined: str) -> int:
+    """Where the answer starts in the generated token text. A thinking model (qwen3.x on Ollama) generates its
+    reasoning first and the token stream (logprobs) carries it, up to </think>, although the server returns it
+    in a separate field (message.thinking, or reasoning on /v1); decisions are looked for after it. Without
+    </think> (no thinking, or reasoning cut off by the token limit) the whole text counts."""
+    i = joined.rfind(THINK_CLOSE)
+    return 0 if i < 0 else i + len(THINK_CLOSE)
+
+
+def _json_objects(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    """Spans of the top-level JSON objects in text[start:end] (braces inside strings are skipped)."""
+    out, depth, in_str, esc, obj = [], 0, False, False, None
+    for i in range(start, end):
+        ch = text[i]
+        if in_str:
+            esc, in_str = (False, True) if esc else (ch == "\\", ch != '"')
+        elif ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+            if depth == 1:
+                obj = i
+        elif ch == "}" and depth:
+            depth -= 1
+            if depth == 0:
+                out.append((obj, i + 1))
+    if depth and obj is not None:  # a call cut off by the token limit runs to the end
+        out.append((obj, end))
+    return out
+
+
+def tool_call_spans(joined: str, pos: int = 0) -> list[tuple[int, int]]:
+    """Character span of each tool call in the generated text, in the order the server lists them. A call is a
+    <tool_call> block, from its opening tag to its closing tag (or the end of the text); a block holding several
+    calls (Qwen sometimes writes them one JSON object per line in one block, and the server splits them) gives
+    one span per object. Searching starts at pos."""
+    spans = []
+    while (start := joined.find(TOOL_CALL_OPEN, pos)) >= 0:
+        close = joined.find(TOOL_CALL_CLOSE, start)
+        end = len(joined) if close < 0 else close + len(TOOL_CALL_CLOSE)
+        objs = _json_objects(joined, start + len(TOOL_CALL_OPEN), close if close >= 0 else len(joined))
+        spans += [(start, end)] if len(objs) <= 1 else objs
+        pos = end
+    return spans
 
 
 def decision_span(token_logprobs: list, decision: dict) -> tuple[int, int] | None:
     """Character span of a decision (an item a parser returned) in the concatenated generated token text. A tool
-    call is found in the index-th <tool_call> block: its name after "name", an argument after "arguments" and each
-    key of its path, the whole call from the block's start to its closing tag (or the end of the text)."""
+    call is found as the index-th call (tool_call_spans): its name after "name", an argument after "arguments" and
+    each key of its path, the whole call over its span."""
     joined = "".join(t[0] or "" for t in token_logprobs or [])
+    off = answer_start(joined)
     if decision.get("channel") != "tool_call":
         value = decision.get("value")
-        return value_char_span(joined, value, decision.get("json_key")) if isinstance(value, str) else None
-    start = -1
-    for _ in range(decision.get("index", 0) + 1):
-        start = joined.find(TOOL_CALL_OPEN, start + 1)
-        if start < 0:
-            return None
-    close = joined.find(TOOL_CALL_CLOSE, start)
-    end = len(joined) if close < 0 else close + len(TOOL_CALL_CLOSE)
+        return value_char_span(joined, value, decision.get("json_key"), off) if isinstance(value, str) else None
+    spans = tool_call_spans(joined, off)
+    if decision.get("index", 0) >= len(spans):
+        return None
+    start, end = spans[decision.get("index", 0)]
     block = joined[:end]
     field = decision.get("field")
     if field == "*":
         return start, end
+    if XML_FUNCTION in joined[start:end]:
+        return _xml_value_span(joined, start, end, field, decision.get("value"))
     keys = ["name"] if field == "name" else ["arguments"] + field.split(".")[1:]
     pos = start
     for k in keys:
@@ -184,6 +235,30 @@ def decision_span(token_logprobs: list, decision: dict) -> tuple[int, int] | Non
         if pos is None:
             return None
     return _value_after(block, decision.get("value"), pos)
+
+
+def _xml_value_span(joined: str, start: int, end: int, field: str, value) -> tuple[int, int] | None:
+    """A value in a call written in Qwen3.5's XML format, <function=NAME><parameter=KEY>VALUE</parameter>...
+    (qwen3.x models on Ollama): the name after <function=, an argument inside its <parameter=KEY> element.
+    Nested argument paths are not written this way and give None."""
+    if value is None:
+        return None
+    if field == "name":
+        m = joined.find(XML_FUNCTION, start, end)
+        p = m + len(XML_FUNCTION)
+        return (p, p + len(value)) if m >= 0 and isinstance(value, str) and joined.startswith(value, p) else None
+    path = field.split(".")[1:]
+    if len(path) != 1:
+        return None
+    tag = f"<parameter={path[0]}>"
+    m = joined.find(tag, start, end)
+    if m < 0:
+        return None
+    p = m + len(tag)
+    close = joined.find(XML_PARAMETER_CLOSE, p, end)
+    lit = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    i = joined.find(lit, p, close if close >= 0 else end)
+    return (i, i + len(lit)) if i >= 0 else None
 
 
 def token_span(tokens: list, start: int, end: int) -> list[int]:
@@ -250,16 +325,19 @@ def decision_margin(token_logprobs: list | None, text: str | None, value, json_k
         value, json_key = decision.get("value"), decision.get("json_key")
     out = {"value": value, "found": False, "span": [], "end": None, "margin": None, "margin_value": None,
            "margin_pos": None, "chosen_token": None, "runner_up": None, "runner_up_logprob": None,
-           "n_constrained": None, "constrained_positions": [], "margin_def": MARGIN_DEF, "aligned": None}
+           "n_constrained": None, "constrained_positions": [], "margin_def": MARGIN_DEF, "aligned": None,
+           "answer_token": None, "margin_free": None}
     if not token_logprobs:
         out["reason"] = "no token logprobs"
         return out
     joined = "".join(t[0] or "" for t in token_logprobs)
     out["aligned"] = None if text is None else joined == text  # a tool-call reply may carry no text at all
+    off = answer_start(joined)  # a thinking model's reasoning precedes the answer in the token stream
+    out["answer_token"] = len(token_span(token_logprobs, 0, off)) if off else 0
     if decision is not None:
         span_chars = decision_span(token_logprobs, decision)
-    else:  # offsets in the token text, which equals text if aligned
-        span_chars = value_char_span(joined, value, json_key) if isinstance(value, str) else None
+    else:  # offsets in the token text, which equals text if aligned (and the model did not think)
+        span_chars = value_char_span(joined, value, json_key, off) if isinstance(value, str) else None
     span = token_span(token_logprobs, *span_chars) if span_chars is not None else []
     if not span:
         out["reason"] = "value not found in the output tokens"
@@ -273,6 +351,8 @@ def decision_margin(token_logprobs: list | None, text: str | None, value, json_k
         out["reason"] = "no alternative candidates in top_logprobs"
         return out
     m, i = min(prefix)
+    free = [g for g, j in prefix if j not in set(constrained)]
+    out["margin_free"] = min(free) if free else None
     in_value = [gaps[j][0] for j in span if gaps[j][0] is not None]
     out.update(margin=m, margin_value=min(in_value) if in_value else None, margin_pos=i,
                chosen_token=token_logprobs[i][0], runner_up=gaps[i][2], runner_up_logprob=gaps[i][3])
@@ -296,7 +376,8 @@ def evidence(span_id: str | None, token_logprobs: list | None, text: str | None,
     d = decision_margin(token_logprobs, text, value, json_key, decision=decision, greedy=temperature == 0)
     ev.update(margin=d["margin"], margin_value=d["margin_value"], margin_def=MARGIN_DEF, margin_pos=d["margin_pos"],
               runner_up=d["runner_up"], margin_found=d["found"], margin_note=d.get("reason"),
-              n_constrained=d["n_constrained"])
+              n_constrained=d["n_constrained"], **({"answer_token": d["answer_token"], "margin_free": d["margin_free"]}
+                                                   if d["answer_token"] else {}))
     end = d["end"]
     if end is None:
         return ev

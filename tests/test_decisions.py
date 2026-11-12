@@ -4,8 +4,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from hbench.decisions import (decision_margin, evidence, json_field_parser, parser_from_spec, position_margin,
-                              token_span, value_char_span)
+from hbench.decisions import (decision_margin, decision_span, evidence, json_field_parser, parser_from_spec,
+                              position_margin, token_span, tool_call_spans, value_char_span)
 from hbench.predictions import sm_record
 from hbench.score_sm import score_sm_core
 from hbench.stability import flips_by_margin, fragile_items, stability_report
@@ -118,6 +118,22 @@ def test_tool_call_locator_edge_cases(spec, span):
     assert got["found"] and got["span"] == span
 
 
+def test_tool_call_locator_handles_several_calls_in_one_block():
+    """Qwen may write two calls in one <tool_call> block, one JSON object per line; the server splits them, so the
+    index counts calls, not blocks (E1 Stage 2 pilot: the submitted target was the third call, in the second block)."""
+    toks = _synthetic(["Hmm. ", "<tool_call>", '\n{"name": "', "a", '", "arguments": {"c": "', "x{", '"}}',
+                       '\n{"name": "', "b", '", "arguments": {}}', "\n</tool_call>", "\n<tool_call>",
+                       '\n{"name": "', "s", '", "arguments": {"t": "', "y", '"}}', "\n</tool_call>"])
+    out = {"text": "Hmm. ", "tool_calls": [{"name": "a", "arguments": {"c": "x{"}}, {"name": "b", "arguments": {}},
+                                           {"name": "s", "arguments": {"t": "y"}}]}
+    spec = [{"type": "tool_call", "field": "name", "index": i} for i in range(3)]
+    spec += [{"type": "tool_call", "field": "arguments.t", "index": 2}]
+    for d in parser_from_spec(spec)(out):
+        span = decision_span(toks, d)
+        assert span is not None and "".join(t[0] for t in toks)[span[0]:span[1]] == d["value"]
+    assert len(tool_call_spans("".join(t[0] for t in toks))) == 3
+
+
 def test_tool_call_locator_reports_what_it_cannot_find():
     assert parser_from_spec({"type": "tool_call", "field": "arguments.missing"})(SYN_OUTPUT) == []
     assert parser_from_spec({"type": "tool_call", "field": "name", "index": 5})(SYN_OUTPUT) == []
@@ -191,3 +207,56 @@ def test_an_argument_key_is_not_confused_with_an_equal_value():
     out = {"text": "", "tool_calls": [{"name": "f", "arguments": {"x": "b", "c": "zz", "b": "zz"}}]}
     (d,) = parser_from_spec({"type": "tool_call", "field": "arguments.b"})(out)
     assert decision_margin(toks, "", d["value"], decision=d)["span"] == [8]  # b's value, not c's
+
+
+# qwen3.8:27b on Ollama 0.40.0 (live probe, 2026-11-11): the token stream carries the reasoning, then </think>,
+# then the answer; tool calls are written in Qwen3.5's XML format. The reasoning mentions the candidates.
+THINK = _synthetic(["The user wants ", '"target"', ": ", '"', "days_to_birth", '" maybe, but ', "age_at_index",
+                    " fits.\n", "</think>", "\n\n", "<tool_call>", "\n<function=", "submit_match",
+                    ">\n<parameter=source_column>\n", "Age_at_diagnosis", "\n</parameter>\n<parameter=target>\n",
+                    "age_at_index", "\n</parameter>\n</function>\n</tool_call>"])
+THINK_OUTPUT = {"text": "", "tool_calls": [{"name": "submit_match",
+                                            "arguments": {"source_column": "Age_at_diagnosis",
+                                                          "target": "age_at_index"}}]}
+
+
+@pytest.mark.parametrize("spec,span", [
+    ({"type": "tool_call", "field": "name"}, [12]),
+    ({"type": "tool_call", "field": "arguments.target"}, [16]),          # not the mention in the reasoning (6)
+    ({"type": "tool_call", "field": "arguments.source_column"}, [14]),
+    ({"type": "tool_call", "field": "*"}, [10, 11, 12, 13, 14, 15, 16, 17]),
+])
+def test_xml_tool_calls_after_thinking(spec, span):
+    (d,) = parser_from_spec(spec)(THINK_OUTPUT)
+    got = decision_margin(THINK, THINK_OUTPUT["text"], d["value"], decision=d)
+    assert got["found"] and got["span"] == span and got["answer_token"] == 9
+    assert got["margin_pos"] == 0  # the prefix margin covers the reasoning: a flip there changes everything after
+
+
+def test_json_answer_is_looked_for_after_thinking():
+    toks = _synthetic(["Options: ", '{"target": "', "days_to_birth", '"} or ', "age_at_index", ".", "</think>",
+                       '{"target": "', "age_at_index", '"}'])
+    text = '{"target": "age_at_index"}'
+    d = decision_margin(toks, text, "age_at_index", "target")
+    assert d["found"] and d["span"] == [8] and d["answer_token"] == 7 and d["aligned"] is False
+    (item,) = json_field_parser("target")(text)
+    assert decision_span(toks, item) == (len("".join(t[0] for t in toks[:8])),) * 1 + (len("".join(t[0] for t in toks[:9])),)
+
+
+def test_v1_reasoning_is_kept_as_thinking():
+    from hbench.llm.normalize import normalize_openai
+    resp = {"choices": [{"message": {"role": "assistant", "content": "", "reasoning": "Let me think.",
+                                     "tool_calls": []}, "finish_reason": "stop"}], "usage": {}}
+    assert normalize_openai({"model": "m"}, resp)["output"]["thinking"] == "Let me think."
+
+
+def test_margin_free_skips_the_grammar_forced_answer_start():
+    """qwen3.8:27b with format=json: after </think> the grammar forces '{"' (logprob -19.7) where the model wanted
+    a newline; the prefix margin is then 0 for every decision, margin_free is the minimum elsewhere."""
+    toks = [["Fine", -0.01, [["Fine", -0.01], ["Hmm", -3.0]]], ["</think>", 0.0, [["</think>", 0.0], ["</", -14.0]]],
+            ['{"', -19.7, [["\n\n", 0.0], ["\n", -15.4]]], ["target", 0.0, [["target", 0.0], [" target", -15.5]]],
+            ['": "', 0.0, [['": "', 0.0], ['":', -9.0]]], ["gender", 0.0, [["gender", 0.0], ["sex", -6.0]]],
+            ['"}', 0.0, [['"}', 0.0], ['",', -8.0]]]]
+    d = decision_margin(toks, '{"target": "gender"}', "gender", "target")
+    assert d["found"] and d["constrained_positions"] == [2] and d["margin"] == 0
+    assert round(d["margin_free"], 2) == 2.99 and d["answer_token"] == 2

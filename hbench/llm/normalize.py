@@ -135,7 +135,8 @@ def normalize_openai(request: dict, response: dict | None) -> dict:
                        "computed_tokens": None if prompt is None or cached is None else prompt - cached,
                        "load_ms": None, "path_class": path_class(prompt, cached, None),
                        "prompt_eval_ms": None, "eval_ms": None, "total_ms": None},
-            "output": {"text": msg.get("content"), "tool_calls": _tool_calls(msg.get("tool_calls")), "thinking": None,
+            "output": {"text": msg.get("content"), "tool_calls": _tool_calls(msg.get("tool_calls")),
+                       "thinking": msg.get("reasoning") or msg.get("reasoning_content"),
                        "finish_reason": choice.get("finish_reason"), "n_tokens": usage.get("completion_tokens")},
             "token_logprobs": tokens, "unavailable": unavailable}
 
