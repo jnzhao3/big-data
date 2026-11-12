@@ -35,7 +35,7 @@ def test_compare_reports_decision_margin_shift(tmp_path):
         events.append(next(e for e in read_events(tmp_path / "r") if e["span_id"] == span))
     (row,) = compare(events[0], events[1], log.blobs)
     assert row["same_text"] and row["same_tokens"] and not row["bitwise_same_logprobs"]
-    assert row["decision"] == "bcr_id" and row["decision_flipped"] is False
+    assert row["decision"] == "bcr_id" and row["decision_flipped"] is False and round(row["margin_source"], 4) == 0.1266
     assert round(row["margin_source"], 4) == 0.1266 and round(row["d_margin"], 4) == -0.0070
 
 
@@ -139,3 +139,35 @@ def test_compare_keeps_two_tool_calls_apart(tmp_path):
     rows = compare(ev[spans[0]], ev[spans[1]], log.blobs)
     assert [(r["decision_key"], r["decision"], r["decision_replay"], r["decision_flipped"]) for r in rows] == [
         ("name", "a", "b", True), ("name@1", "b", "a", True)]
+
+
+def test_long_outputs_stay_inline_and_old_blob_outputs_are_resolved(tmp_path):
+    """A thinking answer passes INLINE_LIMIT. New calls keep output inline; a call logged with its output as a blob
+    ref (before) still yields its decision rows and evidence."""
+    from hbench.decisions import evidence_from_call
+    from hbench.llm.record import load_output, record_llm_call
+    from hbench.runlog.writer import INLINE_LIMIT, is_blob_ref
+
+    rec = PILOT["cold"]
+    toks = [[t, next(lp for c, lp in top if c == t), top] for t, top in zip(rec["tokens"], rec["top"])]
+    long_text = json.dumps({"target": "bcr_id", "reason": "x" * (INLINE_LIMIT + 100)})
+    log = RunLog.create(tmp_path, "e1", "t", "clark", run_id="r")
+    spec = {"type": "json_field", "field": "target"}
+    # new: record_llm_call keeps the long output inline
+    span = record_llm_call(log, caller="method:x", transport="ollama", endpoint="/api/chat", api_base=None,
+                           model="m", request={"model": "m", "messages": [{"role": "user", "content": "q"}]},
+                           response={}, normalized={"output": {"text": long_text}, "decoding": {}},
+                           latency_s=0.1, decision_spec=spec)
+    new = next(e for e in read_events(tmp_path / "r") if e["span_id"] == span)
+    assert not is_blob_ref(new["output"]) and new["output"]["text"] == long_text
+    # old: the output stored as a blob ref
+    old = []
+    for _ in range(2):
+        s = log.emit("llm_call", caller="method:x", output={"text": long_text}, decision_spec=spec,
+                     token_logprobs=log.blobs.put(toks), engine={"path_class": "x"})
+        old.append(next(e for e in read_events(tmp_path / "r") if e["span_id"] == s))
+    assert is_blob_ref(old[0]["output"]) and load_output(old[0], log.blobs)["text"] == long_text
+    (row,) = compare(old[0], old[1], log.blobs)
+    assert row["decision"] == "bcr_id" and row["decision_flipped"] is False and round(row["margin_source"], 4) == 0.1266
+    ev = evidence_from_call(old[0], log.blobs)
+    assert ev["margin_found"] and round(ev["margin"], 4) == 0.1266

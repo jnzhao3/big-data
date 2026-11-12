@@ -430,9 +430,9 @@ def call_evidence(normalized: dict, spec=None, *, transport: str | None = None, 
 
 def evidence_from_call(event: dict, blobs, key: str | None = None, lock: dict | None = None, **extra) -> dict:
     """The same evidence from a logged llm_call, e.g. one LiteLLM made (runlog.litellm_cb logs it)."""
-    from .llm.record import load_tokens
+    from .llm.record import load_output, load_tokens
 
-    normalized = {"output": event.get("output"), "decoding": event.get("decoding"),
+    normalized = {"output": load_output(event, blobs), "decoding": event.get("decoding"),
                   "token_logprobs": load_tokens(event, blobs)}
     return call_evidence(normalized, event.get("decision_spec"), transport=event.get("transport"),
                          endpoint=event.get("endpoint"), span_id=event.get("span_id"),

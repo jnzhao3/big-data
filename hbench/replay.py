@@ -33,7 +33,7 @@ import copy
 from . import sampler
 from .decisions import decision_margin, decision_parser, parser_from_spec
 from .llm.client import LLMClient
-from .llm.record import load_tokens
+from .llm.record import load_output, load_tokens
 from .runlog.writer import BlobStore, read_events
 
 PROTOCOLS = {"as_is": (), "cold_start": (), "cold": ("unload",), "resend": ("send_source",),
@@ -157,7 +157,7 @@ def compare(src: dict, rep: dict, blobs: BlobStore, lineage_source: dict | None 
     """Compare a replayed llm_call event with its source event: one row per decision of the source call. With the
     two calls' lineage records (engine_audit.json), lineage_same says whether bitwise identity is predicted."""
     ta, tb = load_tokens(src, blobs), load_tokens(rep, blobs)
-    out_a, out_b = src.get("output") or {}, rep.get("output") or {}
+    out_a, out_b = load_output(src, blobs) or {}, load_output(rep, blobs) or {}
     text_a, text_b = out_a.get("text"), out_b.get("text")
     known = all(x is not None and not x.get("uncertain") for x in (lineage_source, lineage_replay))
     row = {"source_span": src["span_id"], "replay_span": rep["span_id"], "protocol": rep.get("protocol"),

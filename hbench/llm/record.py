@@ -10,7 +10,7 @@ both transports. Readers accept /2 events, which lack prompt_sha256.
 
 from __future__ import annotations
 
-from ..runlog.writer import RunLog, sha256_json
+from ..runlog.writer import RunLog, is_blob_ref, sha256_json
 from .normalize import NORMALIZERS, generation_key, prompt_key
 
 LLM_CALL_SCHEMA = "hbench.llm_call/3"
@@ -46,7 +46,7 @@ def record_llm_call(log: RunLog, *, caller: str, transport: str, endpoint: str |
         request_raw=log.blobs.put(request) if request else None,
         response_raw=log.blobs.put(response) if response is not None else None,
         messages=[log.blobs.put(m)["blob"] for m in messages or []],
-        decoding=decoding, engine=normalized.get("engine"), output=output,
+        decoding=decoding, engine=normalized.get("engine"), output=output, inline=("output",),
         token_logprobs=log.blobs.put(tokens) if tokens is not None else None,
         input_sha256=sha256_json(generation_key(model, messages, decoding)),
         prompt_sha256=prompt_sha256(request, decoding),
@@ -66,6 +66,13 @@ def rederive(event: dict, blobs) -> dict:
     request = blobs.get(event["request_raw"])
     response = blobs.get(event["response_raw"]) if event.get("response_raw") else None
     return {"span_id": event["span_id"], "rederived": True, **norm(request, response)}
+
+
+def load_output(event: dict, blobs) -> dict | None:
+    """The call's output ({"text", "tool_calls", ...}). Calls logged before outputs were kept inline store an
+    output over INLINE_LIMIT (long thinking answers) as a blob ref; this resolves it."""
+    out = event.get("output")
+    return blobs.get(out) if is_blob_ref(out) else out
 
 
 def load_tokens(event: dict, blobs) -> list | None:

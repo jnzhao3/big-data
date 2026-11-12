@@ -18,7 +18,7 @@ _blobs/sha256/ab/<hash>.json.gz        content-addressed payloads (messages, lar
 How the logs are written:
 - Nothing is overwritten: run folders and event files are created exclusively.
 - Every event is flushed and fsynced, and readers skip a truncated last line.
-- Field values over 4 KB go to the blob store.
+- Field values over 4 KB go to the blob store, except an llm_call's `output`, which stays inline (long thinking answers pass 4 KB). Calls logged before that may hold a blob ref there; read it with `hbench.llm.record.load_output(event, blobs)`, as `evidence_from_call` and `replay.compare` do.
 - Messages are stored once each, so an agent's repeated history costs disk space once.
 
 Event types:
