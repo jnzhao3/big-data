@@ -40,11 +40,19 @@ def _sha(s) -> str | None:
     return None if s is None else hashlib.sha256(str(s).encode()).hexdigest()
 
 
+def tag_entry(tags: dict, name: str) -> dict | None:
+    """A model's /api/tags entry. Tags list local models as "name:latest", while callers often name them
+    without the tag, so "qwen3.8-27b-bdikit" finds "qwen3.8-27b-bdikit:latest" (its digest was missing before)."""
+    names = {name, name + ":latest"} if ":" not in name else {name}
+    return next((m for m in (tags or {}).get("models", []) if m.get("name") in names or m.get("model") in names),
+                None)
+
+
 def model_info(model: str, base: str = DEFAULT_BASE, _tags: dict | None = None) -> dict:
     """Digest, quantization and template/system hashes: what makes "the same model" reproducible."""
     name = model.split("/", 1)[-1] if "/" in model else model  # "ollama_chat/qwen2.5:14b" -> "qwen2.5:14b"
     t = _tags if _tags is not None else tags(base)
-    entry = next((m for m in t.get("models", []) if m.get("name") == name or m.get("model") == name), None)
+    entry = tag_entry(t, name)
     s = show(name, base)
     if "error" in s and entry is None:
         return {"name": name, "error": s["error"]}

@@ -152,3 +152,81 @@ def test_audit_flags_sampler_stages_p_path_cannot_model(tmp_path):
     s = audit_run(log.run_dir)
     assert [m["span_id"] for m in s["sampler_unmodelled"]] == ["driver:2"]
     assert any("not modelled" in p for p in audit_problems(s))
+
+
+def _batch_run(tmp_path, monkeypatch, loaded_batch, offset=0, runner_blob=None, name="r"):
+    """The fixture window as a qwen2.5:14b run (its runner starts with -b 1024 -ub 1024) under a lock that pins
+    loaded_batch for the model."""
+    import hbench.engine.lock as lockmod
+    lock = json.loads(lockmod.ENGINE_LOCK.read_text())
+    if loaded_batch:
+        lock["models"]["qwen2.5:14b"]["loaded_batch"] = loaded_batch
+    (tmp_path / "lock.json").write_text(json.dumps(lock))
+    monkeypatch.setattr(lockmod, "ENGINE_LOCK", tmp_path / "lock.json")
+    if not (tmp_path / "server.log").exists():
+        shutil.copy(FX / "ollama_server_window.log", tmp_path / "server.log")
+    log = RunLog.create(tmp_path / "raw", "e1", "t", "clark", run_id=name)
+    runners = {"qwen2.5:14b": {"model_blob_sha256": runner_blob}} if runner_blob else {}
+    log.emit("run_header", engine={"server_log": {"path": str(tmp_path / "server.log"), "offset": offset},
+                                   "runners": runners})
+    for n, t in [(2741, 0.0), (2741, 0.0), (42, 0.0), (42, 0.8), (42, 0.8), (42, 0.8), (42, 0.8),
+                 (2741, 0.0), (2741, 0.0), (2741, 0.0), (2741, 0.0)]:
+        log.emit("llm_call", api_base="http://localhost:11434", model="openai/qwen2.5:14b", transport="openai_v1",
+                 response_raw={"blob": "sha256:00", "bytes": 1}, engine={"prompt_tokens": n},
+                 decoding={"temperature": t})
+    return log
+
+
+def test_audit_records_the_loaded_batch_and_checks_the_lock(tmp_path, monkeypatch):
+    blob = "2049f5674b1e92b4464e5729975c9689fcfbf0b0e4443ccf10b5339f370f9a54"
+    log = _batch_run(tmp_path, monkeypatch, {"b": 1024, "ub": 1024}, runner_blob=blob)
+    s = audit_run(log.run_dir)
+    rows = json.loads((log.run_dir / "engine_audit.json").read_text())["calls"]
+    assert {(r["batch"]["b"], r["batch"]["ub"], r["batch"]["model_blob"]) for r in rows} == {(1024, 1024, blob)}
+    assert s["batch_mismatches"] == [] and not any("batch" in p for p in audit_problems(s))
+    log = _batch_run(tmp_path, monkeypatch, {"b": 512, "ub": 512}, name="r512")
+    s = audit_run(log.run_dir)
+    assert len(s["batch_mismatches"]) == 11 and s["batch_mismatches"][0]["loaded"] == {"b": 1024, "ub": 1024}
+    assert any(p.startswith("11 call(s) ran on a runner whose batch sizes are not the locked ones")
+               for p in audit_problems(s))
+    log = _batch_run(tmp_path, monkeypatch, {"b": 1024, "ub": 1024}, runner_blob="f" * 64, name="other")
+    assert len(audit_run(log.run_dir)["batch_mismatches"]) == 11      # served by another model's runner
+    log = _batch_run(tmp_path, monkeypatch, None, name="unpinned")
+    assert audit_run(log.run_dir)["batch_mismatches"] == []         # a model without loaded_batch is not checked
+
+
+def test_loaded_batch_of_a_model_started_before_the_run(tmp_path, monkeypatch):
+    from hbench.engine.audit import loaded_batches
+    raw = (FX / "ollama_server_window.log").read_bytes()
+    after_runner = raw.index(b"\n", raw.index(b'msg="starting llama-server"')) + 1
+    shutil.copy(FX / "ollama_server_window.log", tmp_path / "server.log")
+    got = loaded_batches(str(tmp_path / "server.log"), after_runner, len(raw))
+    assert len(got) == 11 and {(g["b"], g["ub"]) for g in got} == {(1024, 1024)}
+    log = _batch_run(tmp_path, monkeypatch, {"b": 512, "ub": 512}, offset=after_runner)
+    assert len(audit_run(log.run_dir)["batch_mismatches"]) == 11
+
+
+def test_validate_rechecks_batches_against_the_current_lock(tmp_path, monkeypatch):
+    from hbench.engine.audit import recheck_sampler
+    from hbench.runlog import read_events
+    log = _batch_run(tmp_path, monkeypatch, None)
+    s = audit_run(log.run_dir)
+    assert s["batch_mismatches"] == []
+    _batch_run(tmp_path, monkeypatch, {"b": 512, "ub": 512}, name="lockonly")   # the lock now pins 512
+    assert len(recheck_sampler(log.run_dir, read_events(log.run_dir), s)["batch_mismatches"]) == 11
+    p = log.run_dir / "engine_audit.json"                                     # an audit from before batches
+    old = json.loads(p.read_text())
+    for r in old["calls"]:
+        r.pop("batch")
+    p.write_text(json.dumps(old))
+    assert recheck_sampler(log.run_dir, read_events(log.run_dir), s)["batch_mismatches"] == []
+
+
+def test_tag_entry_finds_latest_tags():
+    from hbench.runlog.ollama import tag_entry
+    t = {"models": [{"name": "qwen3.8-27b-bdikit:latest", "digest": "f33c"}, {"name": "qwen2.5:14b", "digest": "7cdf"},
+                    {"name": "qwen3.8-27b-bdikit-nb1024:latest", "digest": "01ce"}]}
+    assert tag_entry(t, "qwen3.8-27b-bdikit")["digest"] == "f33c"
+    assert tag_entry(t, "qwen3.8-27b-bdikit:latest")["digest"] == "f33c"
+    assert tag_entry(t, "qwen3.8-27b-bdikit-nb1024")["digest"] == "01ce"
+    assert tag_entry(t, "qwen2.5:14b")["digest"] == "7cdf" and tag_entry(t, "qwen2.5") is None

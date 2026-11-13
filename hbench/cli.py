@@ -192,6 +192,9 @@ def cmd_engine(a) -> int:
             old = json.loads(ENGINE_LOCK.read_text())
             if old.get("sampler_defaults"):
                 lock["sampler_defaults"] = old["sampler_defaults"]
+            for m, entry in (old.get("models") or {}).items():  # stated by hand, not read from the engine
+                if entry.get("loaded_batch") and m in lock["models"]:
+                    lock["models"][m]["loaded_batch"] = entry["loaded_batch"]
         if a.write:
             _write_new(ENGINE_LOCK, json.dumps(lock, indent=1, sort_keys=True) + "\n", a.force)
             print(f"wrote {ENGINE_LOCK}")

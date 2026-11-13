@@ -92,14 +92,15 @@ Stability over runs at T>0 (`stability.sampling_check`):
   - what only the server log knows: the server's `OLLAMA_*` configuration, each model's llama-server flags (KV-cache precision, flash attention, context, batch sizes), and the host-RAM prompt cache size;
   - the server log's current byte offset.
 - **`env/engine-lock.json`** pins the Ollama version, model digests and templates, and server-level runner invariants.
-  - Context and batch sizes are not pinned: they follow each caller's `num_ctx` and are recorded per run instead.
+  - Context and batch sizes are not pinned by default: they follow each caller's `num_ctx` and the free RAM, and are recorded per run and per call instead. Ollama 0.40 picks `-b` 1024 or 512 from free RAM when it loads a model, and on qwen3.8-27b the two give bitwise-different logprobs. A model whose Modelfile sets `PARAMETER num_batch` loads with a fixed batch; its lock entry then states `loaded_batch` (`{"b": 1024, "ub": 1024}`), by hand, and regenerating the lock keeps it. Request-level `options.num_batch` works only on `/api/chat`; `/v1` honors only the Modelfile.
   - `sampler_defaults` records what each endpoint uses for settings a request leaves out, as read from audited calls. `/api/chat` uses T 0.8, top_k 40, top_p 0.9; `/v1` uses T 1.0, top_k 40, top_p 1.0; min_p is 0 on both. Regenerating the lock (`python -m hbench engine lock --write --force`) keeps them.
 - **The audit** (`python -m hbench audit <run_dir>`, run automatically when a `start_run` run closes) parses the server-log bytes between the run's start and end offsets and joins them with the run's calls. Per call it recovers:
   - the effective sampler parameters, every one compared with `sampler.effective` for the call and its model;
   - reused and recomputed tokens, RAM-cache restores, truncation and HTTP status;
-  - the computation lineage.
+  - the computation lineage;
+  - `batch`: the `-b`/`-ub` and model blob of the runner that served it, from the last `starting llama-server` line before it (read from before the run when the model was already loaded). Calls of a model with `loaded_batch` in the lock that ran otherwise are `batch_mismatches`, a problem.
 
-  `log validate` recomputes that comparison from `engine_audit.json`, so audits written before the model's own settings were taken into account (they flagged top_k 20 against 40 on qwen3.8-27b-bdikit) are judged by the current rule.
+  `log validate` recomputes that comparison (and `batch_mismatches`, against the current lock) from `engine_audit.json`, so audits written before the model's own settings were taken into account (they flagged top_k 20 against 40 on qwen3.8-27b-bdikit) are judged by the current rule.
 
   It also checks the engine protocol: under `cold_start`, a runner start before the first call with nothing reused; under `cold`, a runner start before every call. It flags calls whose server-side sampler ran a stage `p_path` cannot model (`sampler_unmodelled`). Requests that match none of the run's calls are foreign: another client used the server.
 

@@ -65,8 +65,9 @@ def parse_requests(text: str) -> dict:
         if _RX["runner"].search(line):
             reloads += 1
             b, ub = re.search(r" -b (\d+)", line), re.search(r" -ub (\d+)", line)
+            blob = re.search(r"--model \S*sha256-([0-9a-f]{64})", line)
             stream.append({"kind": "runner_start", "n_batch": int(b[1]) if b else None,
-                           "n_ubatch": int(ub[1]) if ub else None})
+                           "n_ubatch": int(ub[1]) if ub else None, "model_blob": blob[1] if blob else None})
             continue
         if m := _RX["loaded"].search(line):
             stream.append({"kind": "runners_loaded", "count": int(m[1])})
@@ -160,8 +161,68 @@ def sampler_mismatches(pairs, header: dict | None = None) -> list[dict]:
     return out
 
 
+def loaded_batches(path: str, start: int, end: int) -> list[dict | None] | None:
+    """Per generation task in [start, end), in log order: the batch sizes of the runner that served it,
+    {"b", "ub", "model_blob"} from the last "starting llama-server" line before the task. The log is read from
+    the last runner start before `start`, so a model loaded before the run is covered. None for a task with no
+    runner start before it in the log; None overall when the log cannot be read. Ollama 0.40 picks -b 1024 or
+    512 from free RAM when it loads a model, unless its Modelfile sets num_batch, and on qwen3.8-27b the two
+    give bitwise-different logprobs, so the batch is part of the computation path."""
+    from .lineage import last_offset_before
+
+    first = last_offset_before(path, start)
+    begin = start if first is None else first
+    text = read_slice(path, begin, end)
+    if text is None:
+        return None
+    before = 0 if begin == start else len(parse_requests(read_slice(path, begin, start) or "")["tasks"])
+    cur, out = None, []
+    for ev in parse_requests(text)["stream"]:
+        if ev["kind"] == "runner_start":
+            cur = {"b": ev["n_batch"], "ub": ev["n_ubatch"], "model_blob": ev.get("model_blob")}
+        elif ev["kind"] == "task":
+            out.append(cur)
+    return out[before:]
+
+
+def locked_batch(lock: dict | None, model: str | None) -> dict | None:
+    """The batch sizes env/engine-lock.json pins for a model ({"b", "ub"}), whatever route prefix or ":latest"
+    its name carries; None when the lock pins none."""
+    from ..sampler import _model_names
+
+    models = (lock or {}).get("models") or {}
+    for name in _model_names(model):
+        if (models.get(name) or {}).get("loaded_batch"):
+            return dict(models[name]["loaded_batch"])
+    return None
+
+
+def batch_mismatches(pairs, header: dict | None = None, lock: dict | None = None) -> list[dict]:
+    """Calls of a model whose lock entry pins loaded_batch that ran on a runner with other batch sizes, or on
+    one the log does not show (loaded: None), or on another model's runner. pairs: (llm_call event, the
+    loaded_batches entry of its task)."""
+    from ..sampler import _lock, _model_names
+
+    lock = _lock(lock)
+    runners = (((header or {}).get("engine") or {}).get("runners") or {})
+    out = []
+    for c, got in pairs:
+        want = locked_batch(lock, c.get("model"))
+        if not want:
+            continue
+        blob = next(((runners.get(n) or {}).get("model_blob_sha256") for n in _model_names(c.get("model"))
+                     if (runners.get(n) or {}).get("model_blob_sha256")), None)
+        loaded = None if got is None else {"b": got.get("b"), "ub": got.get("ub")}
+        other_model = got is not None and blob and got.get("model_blob") and got["model_blob"] != blob
+        if loaded is None or other_model or any(loaded.get(k) != v for k, v in want.items()):
+            out.append({"span_id": c["span_id"], "model": c.get("model"), "locked": want, "loaded": loaded,
+                        **({"runner_model_blob": got["model_blob"]} if other_model else {})})
+    return out
+
+
 def recheck_sampler(run_dir, events: list[dict], summary: dict) -> dict:
-    """The audit summary with sampler_mismatches recomputed from engine_audit.json under the current rule (audits
+    """The audit summary with sampler_mismatches (and batch_mismatches, against the current lock) recomputed from
+    engine_audit.json under the current rule (audits
     written before the model's own settings were taken into account compared against the server's defaults
     only, e.g. top_k 40 where qwen3.8-27b-bdikit sets 20). The summary unchanged without engine_audit.json."""
     path = Path(run_dir) / "engine_audit.json"
@@ -174,7 +235,11 @@ def recheck_sampler(run_dir, events: list[dict], summary: dict) -> dict:
     calls = {e.get("span_id"): e for e in events if e.get("type") == "llm_call"}
     header = next((e for e in events if e.get("type") == "run_header" and e.get("proc") == "driver"), None)
     pairs = [(calls[r["span_id"]], r.get("sampler")) for r in rows if r.get("span_id") in calls]
-    return {**summary, "sampler_mismatches": sampler_mismatches(pairs, header)}
+    out = {**summary, "sampler_mismatches": sampler_mismatches(pairs, header)}
+    if all("batch" in r for r in rows):  # audits written before the batch was recorded keep their summary
+        out["batch_mismatches"] = batch_mismatches(
+            [(calls[r["span_id"]], r["batch"]) for r in rows if r.get("span_id") in calls], header)
+    return out
 
 
 def audit_run(run_dir, server_log: str | None = None, end_offset: int | None = None) -> dict:
@@ -200,6 +265,7 @@ def audit_run(run_dir, server_log: str | None = None, end_offset: int | None = N
              and not e.get("cloud_call") and e.get("response_raw") is not None]
     j = join_calls(calls, parsed["tasks"])
     lineage, lineage_why, before = for_window(path, start, end)
+    batches = loaded_batches(path, start, end)
     index = {id(t): i for i, t in enumerate(parsed["tasks"])}
     span_at = {before + index[id(t)]: c["span_id"] for c, t in j["matched"]}
     protocol = (((header or {}).get("condition") or {}).get("engine") or {}).get("protocol", "natural")
@@ -213,10 +279,11 @@ def audit_run(run_dir, server_log: str | None = None, end_offset: int | None = N
         lin = None
         if lineage is not None and index[id(t)] < len(lineage):
             lin = labelled(lineage[index[id(t)]], span_at, before)
+        batch = batches[index[id(t)]] if batches is not None and index[id(t)] < len(batches) else None
         rows.append({"span_id": c["span_id"], "task": t["task"], "n_tokens": t["n_tokens"], "cached": t["cached"],
                      "computed": t["computed"], "api_cached": api_cached, "truncated": t["truncated"],
                      "ram_restore": t["ram_restore"], "slot_select": t["slot_select"], "sampler": t["sampler"],
-                     "http": t["http"], "lineage": lin})
+                     "http": t["http"], "lineage": lin, "batch": batch})
     summary.update({
         "protocol": protocol, "protocol_violations": protocol_violations(protocol, parsed["stream"], j["matched"]),
         "n_generation_tasks": len(parsed["tasks"]), "n_calls": len(calls), "matched": len(j["matched"]),
@@ -226,6 +293,7 @@ def audit_run(run_dir, server_log: str | None = None, end_offset: int | None = N
         "cache_disagreements": [r["span_id"] for r in rows if r["api_cached"] is not None and r["cached"] is not None
                                 and r["api_cached"] != r["cached"]],
         "sampler_mismatches": mismatches, "sampler_unmodelled": unmodelled, "runner_starts": parsed["runner_starts"],
+        "batch_mismatches": batch_mismatches([(c, r["batch"]) for (c, _t), r in zip(j["matched"], rows)], header),
         "other_requests": len(parsed["other_requests"]),
         "lineage_uncertain": [r["span_id"] for r in rows if r["lineage"] and r["lineage"]["uncertain"]],
         **({"lineage_unavailable": lineage_why} if lineage is None else {})})
@@ -281,6 +349,10 @@ def audit_problems(summary: dict) -> list[str]:
     if summary.get("sampler_unmodelled"):
         u = summary["sampler_unmodelled"]
         probs.append(f"{len(u)} call(s) ran {u[0]['reason']}: their p_path is not valid")
+    if summary.get("batch_mismatches"):
+        bm = summary["batch_mismatches"]
+        probs.append(f"{len(bm)} call(s) ran on a runner whose batch sizes are not the locked ones "
+                     f"(locked {bm[0]['locked']}, loaded {bm[0]['loaded']})")
     if summary.get("sampler_mismatches"):
         mm = summary["sampler_mismatches"]
         keys = ", ".join(sorted({m.get("key", "temp") for m in mm}))  # audits before E0 v3 checked temp only

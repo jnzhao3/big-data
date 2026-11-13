@@ -14,6 +14,11 @@ ENGINE_LOCK = Path(__file__).resolve().parents[2] / "env" / "engine-lock.json"
 # caller requested (e.g. qwen3.8:27b was last started with -c 16384 -b 512), so they are per-run covariates,
 # recorded in every run header's engine snapshot and in each call's decoding, not lockable configuration.
 LOCKED_RUNNER_FLAGS = ("np", "cache-type-k", "cache-type-v", "flash-attn", "context-shift", "keep", "chat-template")
+# A model can pin its batch sizes anyway: a Modelfile PARAMETER num_batch fixes -b (and -ub) whatever the free RAM
+# (Ollama 0.40 otherwise picks 1024 or 512 at load, which changes qwen3.8-27b logprobs bitwise). Its lock entry
+# then states models[m].loaded_batch {"b", "ub"}, written by hand and kept when the lock is regenerated; the engine
+# audit checks every call of that model against it (engine.audit.batch_mismatches), since the runner that serves
+# a call may be started during the run.
 # sampler_defaults (what each endpoint uses for settings a request leaves out) is not in the snapshot: it was read
 # from the engine audit's per-call sampler params, and every audit compares calls against it. Regenerating the lock
 # keeps it (cmd_engine carries it over); check() ignores it.
