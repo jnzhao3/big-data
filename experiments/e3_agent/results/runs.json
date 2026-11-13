@@ -1,0 +1,1533 @@
+{
+ "14b_verbatim": {
+  "run_id": "e3-bdikit_agent_qwen2.5_14b_bdikit_T0.0_s1_r1-clark-20261111T162235Z-e10c",
+  "code": {
+   "git_commit": "89a22c3d5c3e53369db947ffa1288c4f168d9d96",
+   "git_dirty": true
+  },
+  "model": "qwen2.5-14b-bdikit",
+  "task": "sm_vm",
+  "prompt_variant": "verbatim",
+  "decoding": {
+   "temperature": 0.0,
+   "top_p": 1.0,
+   "seed": 1,
+   "tool_llm_temperature": 0.0,
+   "tool_llm_top_p": 1.0
+  },
+  "outcome": "final_table",
+  "followups": 1,
+  "turn_ends": [
+   "answered",
+   "answered"
+  ],
+  "n_agent_steps": 3,
+  "tools": [
+   "match_schema"
+  ],
+  "time_s": {
+   "total_wall_s": 206.069,
+   "agent_llm_s": 141.209,
+   "tool_s": 55.555,
+   "tool_llm_s": 42.742
+  },
+  "llm_calls": {
+   "agent": 3,
+   "tool": 16
+  },
+  "audit": {
+   "n_calls": 19,
+   "matched": 19,
+   "foreign_tasks": 0,
+   "protocol_violations": [],
+   "sampler_mismatches": [],
+   "unmatched_calls": []
+  },
+  "sm": {
+   "initial_top1": 9,
+   "final_top1": 9,
+   "n_annotated": 14,
+   "final_mrr": 0.643,
+   "changes": {
+    "unchanged": 16
+   }
+  }
+ },
+ "27b_verbatim_1h": {
+  "run_id": "e3-bdikit_agent_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261111T210131Z-f69e",
+  "code": {
+   "git_commit": "89a22c3d5c3e53369db947ffa1288c4f168d9d96",
+   "git_dirty": true
+  },
+  "model": "qwen3.8-27b-bdikit",
+  "task": "sm_vm",
+  "prompt_variant": "verbatim",
+  "decoding": {
+   "temperature": 0.0,
+   "top_p": 1.0,
+   "seed": 1,
+   "tool_llm_temperature": 0.0,
+   "tool_llm_top_p": 1.0
+  },
+  "outcome": "turn_timeout",
+  "followups": 0,
+  "turn_ends": [
+   "turn_timeout"
+  ],
+  "n_agent_steps": 5,
+  "tools": [
+   "match_schema",
+   "rank_schema_matches",
+   "preview_domain",
+   "preview_domain",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "match_values"
+  ],
+  "time_s": {
+   "total_wall_s": 3640.371,
+   "agent_llm_s": 488.423,
+   "tool_s": 3101.155,
+   "tool_llm_s": 3074.961
+  },
+  "llm_calls": {
+   "agent": 5,
+   "tool": 69
+  },
+  "audit": {
+   "n_calls": 74,
+   "matched": 74,
+   "foreign_tasks": 1,
+   "protocol_violations": [],
+   "sampler_mismatches": [
+    {
+     "span_id": "driver:5",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:4",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:5",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:6",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:7",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:8",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:9",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:10",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:11",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:12",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:13",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:14",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:15",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:16",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:17",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:18",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:19",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:9",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:23",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:24",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:25",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:26",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:27",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:28",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:13",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:18",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:27",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:56",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:57",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:58",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:59",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:60",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:61",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:62",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:63",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:64",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:65",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:66",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:67",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:68",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:69",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:70",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:71",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:72",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:73",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:74",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:75",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:76",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:77",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:78",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:79",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:80",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:81",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:82",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:83",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:84",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:85",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:86",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:87",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:88",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:89",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:90",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:91",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:92",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:93",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:94",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:95",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:96",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:97",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:98",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:99",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:100",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:101",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.77469:102",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    }
+   ],
+   "unmatched_calls": []
+  },
+  "sm": {
+   "initial_top1": 10,
+   "final_top1": 12,
+   "n_annotated": 14,
+   "final_mrr": 0.857,
+   "changes": {
+    "changed_unannotated": 2,
+    "fixed": 2,
+    "unchanged": 10,
+    "wrong_to_wrong": 2
+   }
+  },
+  "vm": {
+   "after_match_values": {
+    "n_items": 77,
+    "micro": 0.532,
+    "coverage": 0.584
+   },
+   "final": {
+    "n_items": 77,
+    "micro": 0.532,
+    "coverage": 0.584
+   },
+   "all_items_micro": 0.101,
+   "categorical_attempted": {
+    "n": 45,
+    "correct": 41
+   },
+   "changed": [],
+   "wrong": [
+    {
+     "source": "Ethnicity_Self_Identify",
+     "target": "ethnicity",
+     "value": "WHITE",
+     "pred": "NONE",
+     "gold": "not hispanic or latino"
+    },
+    {
+     "source": "Ethnicity_Self_Identify",
+     "target": "ethnicity",
+     "value": "White",
+     "pred": "NONE",
+     "gold": "not hispanic or latino"
+    },
+    {
+     "source": "Race",
+     "target": "race",
+     "value": "",
+     "pred": "unknown",
+     "gold": "Unknown|not reported"
+    },
+    {
+     "source": "Tumor/Normal",
+     "target": "tissue_type",
+     "value": "TN",
+     "pred": "Tumor",
+     "gold": "Normal"
+    }
+   ],
+   "not_attempted": {
+    "numeric_identity: not asked (task asks for categorical attributes)": 294,
+    "age_conversion: not asked (task asks for categorical attributes)": 43,
+    "categorical: column mapped to another GT target": 30,
+    "categorical: column mapped to a wrong target": 2
+   },
+   "sm_targets_used": [
+    "ajcc_pathologic_n",
+    "ajcc_pathologic_stage",
+    "ajcc_pathologic_t",
+    "ethnicity",
+    "gender",
+    "race",
+    "tissue_type",
+    "tumor_focality",
+    "tumor_grade"
+   ]
+  }
+ },
+ "27b_dropline_1h": {
+  "run_id": "e3-bdikit_agent_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261111T220212Z-70fe",
+  "code": {
+   "git_commit": "89a22c3d5c3e53369db947ffa1288c4f168d9d96",
+   "git_dirty": true
+  },
+  "model": "qwen3.8-27b-bdikit",
+  "task": "sm_vm",
+  "prompt_variant": "no_json_format",
+  "decoding": {
+   "temperature": 0.0,
+   "top_p": 1.0,
+   "seed": 1,
+   "tool_llm_temperature": 0.0,
+   "tool_llm_top_p": 1.0
+  },
+  "outcome": "turn_timeout",
+  "followups": 0,
+  "turn_ends": [
+   "turn_timeout"
+  ],
+  "n_agent_steps": 5,
+  "tools": [
+   "match_schema",
+   "preview_domain",
+   "preview_domain",
+   "preview_domain",
+   "preview_domain",
+   "preview_domain",
+   "preview_domain",
+   "rank_schema_matches",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching"
+  ],
+  "time_s": {
+   "total_wall_s": 3611.504,
+   "agent_llm_s": 400.828,
+   "tool_s": 1025.248,
+   "tool_llm_s": 1004.085
+  },
+  "llm_calls": {
+   "agent": 5,
+   "tool": 22
+  },
+  "audit": {
+   "n_calls": 94,
+   "matched": 94,
+   "foreign_tasks": 1,
+   "protocol_violations": [],
+   "sampler_mismatches": [
+    {
+     "span_id": "driver:5",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:4",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:5",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:6",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:7",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:8",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:9",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:10",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:11",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:12",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:13",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:14",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:15",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:16",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:17",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:18",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:19",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:9",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:18",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:41",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:42",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:43",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:44",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:45",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:46",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:22",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "driver:30",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:65",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:66",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:67",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:68",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:69",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:70",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:71",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:72",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:73",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:74",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:75",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:76",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:77",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:78",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:79",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:80",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:81",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:82",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:83",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:84",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:85",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:86",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:87",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:88",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:89",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:90",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:91",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:92",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:93",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:94",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:95",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:96",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:97",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:98",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:99",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:100",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:101",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:102",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:103",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:104",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:105",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:106",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:107",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:108",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:109",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:110",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:111",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:112",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:113",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:114",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:115",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:116",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:117",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:118",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:119",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:120",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:121",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:122",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:123",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:124",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:125",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:126",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:127",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:128",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:129",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:130",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    },
+    {
+     "span_id": "mcp.90336:131",
+     "key": "top_k",
+     "requested": 40,
+     "effective": 20.0
+    }
+   ],
+   "unmatched_calls": []
+  },
+  "sm": {
+   "initial_top1": 10,
+   "final_top1": 12,
+   "n_annotated": 14,
+   "final_mrr": 0.857,
+   "changes": {
+    "changed_unannotated": 2,
+    "fixed": 2,
+    "unchanged": 11,
+    "wrong_to_wrong": 1
+   }
+  }
+ },
+ "27b_verbatim_smvm": {
+  "run_id": "e3-bdikit_agent_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T223427Z-5058",
+  "code": {
+   "git_commit": "1ed22406160a3bf38b96fff85ffae056492f78cd",
+   "git_dirty": false
+  },
+  "model": "qwen3.8-27b-bdikit",
+  "task": "sm_vm",
+  "prompt_variant": "verbatim",
+  "decoding": {
+   "temperature": 0.0,
+   "top_p": 1.0,
+   "seed": 1,
+   "tool_llm_temperature": 0.0,
+   "tool_llm_top_p": 1.0
+  },
+  "outcome": "no_final_table",
+  "followups": 2,
+  "turn_ends": [
+   "answered",
+   "answered",
+   "answered"
+  ],
+  "n_agent_steps": 11,
+  "tools": [
+   "match_schema",
+   "rank_schema_matches",
+   "preview_domain",
+   "preview_domain",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "match_values",
+   "rank_value_matches",
+   "rank_value_matches",
+   "update_value_matching",
+   "update_value_matching"
+  ],
+  "time_s": {
+   "total_wall_s": 4591.461,
+   "agent_llm_s": 1624.272,
+   "tool_s": 2951.917,
+   "tool_llm_s": 2923.678
+  },
+  "llm_calls": {
+   "agent": 11,
+   "tool": 69
+  },
+  "audit": {
+   "n_calls": 80,
+   "matched": 80,
+   "foreign_tasks": 0,
+   "protocol_violations": [],
+   "sampler_mismatches": [],
+   "unmatched_calls": []
+  },
+  "sm": {
+   "initial_top1": 10,
+   "final_top1": 12,
+   "n_annotated": 14,
+   "final_mrr": 0.857,
+   "changes": {
+    "changed_unannotated": 2,
+    "fixed": 2,
+    "unchanged": 10,
+    "wrong_to_wrong": 2
+   }
+  },
+  "vm": {
+   "after_match_values": {
+    "n_items": 77,
+    "micro": 0.532,
+    "coverage": 0.584
+   },
+   "final": {
+    "n_items": 77,
+    "micro": 0.558,
+    "coverage": 0.584
+   },
+   "all_items_micro": 0.106,
+   "categorical_attempted": {
+    "n": 45,
+    "correct": 43
+   },
+   "changed": [
+    {
+     "source": "Ethnicity_Self_Identify",
+     "value": "WHITE",
+     "before": "NONE",
+     "after": "not hispanic or latino",
+     "gold": "not hispanic or latino",
+     "effect": "fixed"
+    },
+    {
+     "source": "Ethnicity_Self_Identify",
+     "value": "White",
+     "before": "NONE",
+     "after": "not hispanic or latino",
+     "gold": "not hispanic or latino",
+     "effect": "fixed"
+    }
+   ],
+   "wrong": [
+    {
+     "source": "Race",
+     "target": "race",
+     "value": "",
+     "pred": "unknown",
+     "gold": "Unknown|not reported"
+    },
+    {
+     "source": "Tumor/Normal",
+     "target": "tissue_type",
+     "value": "TN",
+     "pred": "Tumor",
+     "gold": "Normal"
+    }
+   ],
+   "not_attempted": {
+    "numeric_identity: not asked (task asks for categorical attributes)": 294,
+    "age_conversion: not asked (task asks for categorical attributes)": 43,
+    "categorical: column mapped to another GT target": 30,
+    "categorical: column mapped to a wrong target": 2
+   },
+   "sm_targets_used": [
+    "ajcc_pathologic_n",
+    "ajcc_pathologic_stage",
+    "ajcc_pathologic_t",
+    "ethnicity",
+    "gender",
+    "race",
+    "tissue_type",
+    "tumor_focality",
+    "tumor_grade"
+   ]
+  }
+ },
+ "27b_nb1024_T0.6_r1": {
+  "run_id": "e3-bdikit_agent_qwen3.8_27b_bdikit_nb1024_T0.6_s1_r1-clark-20261113T022257Z-f948",
+  "code": {
+   "git_commit": "5d7f7478d3d6bfe8bf76978c423119f76656d181",
+   "git_dirty": false
+  },
+  "model": "qwen3.8-27b-bdikit-nb1024",
+  "task": "sm",
+  "prompt_variant": "verbatim",
+  "decoding": {
+   "temperature": 0.6,
+   "top_p": 0.95,
+   "seed": 1,
+   "tool_llm_temperature": 0.6,
+   "tool_llm_top_p": 0.95
+  },
+  "outcome": "final_table",
+  "followups": 0,
+  "turn_ends": [
+   "answered"
+  ],
+  "n_agent_steps": 4,
+  "tools": [
+   "match_schema",
+   "rank_schema_matches",
+   "preview_domain",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching"
+  ],
+  "time_s": {
+   "total_wall_s": 1530.001,
+   "agent_llm_s": 456.896,
+   "tool_s": 1063.413,
+   "tool_llm_s": 1040.397
+  },
+  "llm_calls": {
+   "agent": 4,
+   "tool": 22
+  },
+  "audit": {
+   "n_calls": 26,
+   "matched": 26,
+   "foreign_tasks": 0,
+   "protocol_violations": [],
+   "sampler_mismatches": [],
+   "unmatched_calls": []
+  },
+  "sm": {
+   "initial_top1": 10,
+   "final_top1": 12,
+   "n_annotated": 14,
+   "final_mrr": 0.857,
+   "changes": {
+    "changed_unannotated": 2,
+    "fixed": 2,
+    "unchanged": 10,
+    "wrong_to_wrong": 2
+   }
+  }
+ },
+ "27b_nb1024_T0.6_r2": {
+  "run_id": "e3-bdikit_agent_qwen3.8_27b_bdikit_nb1024_T0.6_s1_r2-clark-20261113T024828Z-44c3",
+  "code": {
+   "git_commit": "5d7f7478d3d6bfe8bf76978c423119f76656d181",
+   "git_dirty": false
+  },
+  "model": "qwen3.8-27b-bdikit-nb1024",
+  "task": "sm",
+  "prompt_variant": "verbatim",
+  "decoding": {
+   "temperature": 0.6,
+   "top_p": 0.95,
+   "seed": 1,
+   "tool_llm_temperature": 0.6,
+   "tool_llm_top_p": 0.95
+  },
+  "outcome": "final_table",
+  "followups": 0,
+  "turn_ends": [
+   "answered"
+  ],
+  "n_agent_steps": 4,
+  "tools": [
+   "match_schema",
+   "rank_schema_matches",
+   "preview_domain",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching",
+   "update_schema_matching"
+  ],
+  "time_s": {
+   "total_wall_s": 1622.48,
+   "agent_llm_s": 433.342,
+   "tool_s": 1176.585,
+   "tool_llm_s": 1152.512
+  },
+  "llm_calls": {
+   "agent": 4,
+   "tool": 22
+  },
+  "audit": {
+   "n_calls": 26,
+   "matched": 26,
+   "foreign_tasks": 0,
+   "protocol_violations": [],
+   "sampler_mismatches": [],
+   "unmatched_calls": []
+  },
+  "sm": {
+   "initial_top1": 10,
+   "final_top1": 12,
+   "n_annotated": 14,
+   "final_mrr": 0.857,
+   "changes": {
+    "changed_unannotated": 2,
+    "fixed": 2,
+    "unchanged": 10,
+    "wrong_to_wrong": 2
+   }
+  }
+ }
+}

@@ -1,0 +1,28 @@
+{
+ "runs": [
+  "e3-bdikit_agent_qwen3.8_27b_bdikit_nb1024_T0.6_s1_r1-clark-20261113T022257Z-f948",
+  "e3-bdikit_agent_qwen3.8_27b_bdikit_nb1024_T0.6_s1_r2-clark-20261113T024828Z-44c3"
+ ],
+ "driver": {
+  "n": [
+   4,
+   4
+  ],
+  "same_request": 4,
+  "same_seed": 4,
+  "same_output": 4,
+  "same_logprobs": 4
+ },
+ "mcp": {
+  "n": [
+   22,
+   22
+  ],
+  "same_request": 22,
+  "same_seed": 22,
+  "same_output": 22,
+  "same_logprobs": 22
+ },
+ "predictions_identical": true,
+ "claims_identical": true
+}
