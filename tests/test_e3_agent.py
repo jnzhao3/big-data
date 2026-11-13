@@ -519,3 +519,89 @@ def test_modelfile_nb1024_only_pins_batch():
     text = (E3 / "Modelfile.qwen3.8-27b-bdikit-nb1024").read_text()
     assert re.findall(r"^FROM .*$", text, re.M) == ["FROM qwen3.8-27b-bdikit"]
     assert re.findall(r"^(?!#)\S.*$", text, re.M) == ["FROM qwen3.8-27b-bdikit", "PARAMETER num_batch 1024"]
+
+
+# ------------------------------------------------------------------------------------------- E4: tool seed, row order
+
+def _vm_run(tmp_path, scripted, *extra):
+    """A one-tool sampled vm_pairs run; returns (run dir, request bodies sent, in order)."""
+    src = str(tmp_path / "raw" / "_inputs" / "e3" / "clark.csv")
+    pair = [{"source_attribute": "Gender", "target_attribute": "gender"}]
+    ScriptedOpenAI.seen.clear()
+    ScriptedOpenAI.script = [
+        {"content": "", "tool_calls": [("match_values", {"source_dataset_path": src, "target_dataset_path": "gdc",
+                                                         "attribute_matches": pair, "method": "llm"})]},
+        {"content": "Final value matches:\n\n| Source | Value | Target |\n|---|---|---|\n| Gender | Male | male |"}]
+    rd = run_agent.main(["--study", "clark", "--task", "vm_pairs", "--model", MODEL, "--temperature", "0.7",
+                         "--top-p", "0.9", "--seed", "5", "--engine-protocol", "natural", "--ollama-base", scripted,
+                         "--raw-dir", str(tmp_path / "raw"), "--bdikit-shared", str(tmp_path / "shared"),
+                         "--no-lease", "--allow-other-clients", *extra])
+    return rd, [b for p, b in ScriptedOpenAI.seen if p == "/v1/chat/completions"]
+
+
+def _header(rd):
+    return next(e for e in read_events(rd) if e["type"] == "run_header" and e["proc"] == "driver")
+
+
+def test_tool_seed_moves_only_the_tool_llm_seeds(tmp_path, scripted, data):
+    """--tool-seed changes the tool LLM's per-call seeds and nothing the agent sends; omitted, it is the agent's
+    seed, so every request is the same as with --tool-seed equal to --seed (the behavior before the flag)."""
+    rd0, sent0 = _vm_run(tmp_path, scripted)
+    rd5, sent5 = _vm_run(tmp_path, scripted, "--tool-seed", "5")
+    rd6, sent6 = _vm_run(tmp_path, scripted, "--tool-seed", "6")
+    assert sent0 == sent5                                                     # omitted == the agent's seed
+    agent0 = [b for b in sent0 if b.get("tools")]
+    agent6 = [b for b in sent6 if b.get("tools")]
+    tool0 = [b["seed"] for b in sent0 if not b.get("tools")]
+    tool6 = [b["seed"] for b in sent6 if not b.get("tools")]
+    assert agent6[0] == agent0[0]                                             # step 1 of the agent: identical
+    assert [b["seed"] for b in agent6] == [b["seed"] for b in agent0]
+    assert len(tool0) == len(tool6) == 2 and not set(tool0) & set(tool6)     # other tool seeds
+    for rd, want in ((rd0, 5), (rd6, 6)):
+        h = _header(rd)
+        assert h["condition"]["decoding"]["tool_llm_seed"] == want and h["llm"]["tool_llm"]["seed"] == want
+        tool = [e for e in read_events(rd) if e["type"] == "llm_call" and e["caller"].startswith("tool:")]
+        assert {e["seed_base"] for e in tool} == {want}
+    assert _header(rd0)["condition"]["decoding"]["seed"] == _header(rd6)["condition"]["decoding"]["seed"] == 5
+
+
+def test_permute_rows_keeps_header_and_record_bytes():
+    raw = b"a,b\n1,x\n2,\"y,z\"\n3,1.50\n4,\n"
+    p1, p1b, p2 = run_agent.permute_rows(raw, 1), run_agent.permute_rows(raw, 1), run_agent.permute_rows(raw, 2)
+    assert p1 == p1b and p1.startswith(b"a,b\n") and p1.endswith(b"\n")
+    assert sorted(p1.splitlines(keepends=True)) == sorted(raw.splitlines(keepends=True))
+    assert len({p1, p2, raw}) == 3                                            # these seeds do reorder
+    no_nl = run_agent.permute_rows(raw[:-1], 1)                               # no trailing newline: none added
+    assert not no_nl.endswith(b"\n") and sorted(no_nl.split(b"\n")) == sorted(raw[:-1].split(b"\n"))
+    with pytest.raises(SystemExit, match="multi-line"):
+        run_agent.permute_rows(b'a,b\n1,"two\nlines"\n2,x\n', 1)
+
+
+def test_stage_input_permutes_in_place_and_restores(tmp_path, data):
+    import hashlib
+    orig = data.source_path("clark").read_bytes()
+    dst, info = run_agent.stage_input(data, "clark", tmp_path, 3)
+    assert dst == tmp_path / "_inputs" / "e3" / "clark.csv"
+    perm = dst.read_bytes()
+    assert perm != orig and sorted(perm.splitlines()) == sorted(orig.splitlines())
+    assert perm.splitlines()[0] == orig.splitlines()[0]
+    assert info["row_order"] == 3 and info["input_sha256"] == hashlib.sha256(perm).hexdigest()
+    assert info["source_sha256"] == hashlib.sha256(orig).hexdigest() and info["n_records"] == len(orig.splitlines()) - 1
+    dst2, info2 = run_agent.stage_input(data, "clark", tmp_path)              # none: the original again
+    assert dst2 == dst and dst.read_bytes() == orig and info2["input_sha256"] == info2["source_sha256"]
+    assert not list(dst.parent.glob("*.tmp"))
+
+
+def test_driver_row_order_keeps_the_prompt_and_records_the_order(tmp_path, scripted, data):
+    rd0, sent0 = _vm_run(tmp_path, scripted)
+    rd2, sent2 = _vm_run(tmp_path, scripted, "--row-order", "2")
+    first = lambda sent: next(b for b in sent if b.get("tools"))  # noqa: E731
+    assert first(sent2) == first(sent0)                                       # same path, same prompt, same seed
+    h0, h2 = _header(rd0), _header(rd2)
+    assert h0["condition"]["data"]["row_order"] is None and h2["condition"]["data"]["row_order"] == 2
+    staged = tmp_path / "raw" / "_inputs" / "e3" / "clark.csv"
+    assert h2["task"]["input"]["input_sha256"] == h2["condition"]["data"]["input_sha256"]
+    assert h2["task"]["input"]["input_sha256"] != h0["task"]["input"]["input_sha256"]
+    rd3, _ = _vm_run(tmp_path, scripted)                                      # the next default run restores
+    assert staged.read_bytes() == data.source_path("clark").read_bytes()
+    assert _header(rd3)["task"]["input"]["input_sha256"] == h0["task"]["input"]["input_sha256"]

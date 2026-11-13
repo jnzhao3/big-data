@@ -28,11 +28,13 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
+import csv
 import hashlib
+import io
 import json
 import os
+import random
 import re
-import shutil
 import subprocess
 import sys
 import time
@@ -115,22 +117,47 @@ def message_text(content) -> tuple[str | None, str | None]:
     return "\n".join(texts), ("\n".join(thoughts) if thoughts else None)
 
 
-def stage_input(data: Data, study: str, root: Path) -> Path:
-    """The source CSV at a fixed path without spaces (the same text in every run's task prompt)."""
+def permute_rows(raw: bytes, seed: int) -> bytes:
+    """The CSV with its data records in a seeded random order. The header stays first and every record keeps its
+    original bytes (no CSV round trip, which could reformat values). Refuses a file with a multi-line field, where
+    a line is not a record."""
+    lines = raw.splitlines(keepends=True)
+    n_rows = sum(1 for _ in csv.reader(io.StringIO(raw.decode("utf-8"), newline="")))
+    if n_rows != len(lines):
+        raise SystemExit(f"--row-order: the CSV has multi-line fields ({n_rows} records in {len(lines)} lines)")
+    header, recs = lines[0], lines[1:]
+    eol = b"\r\n" if header.endswith(b"\r\n") else b"\r" if header.endswith(b"\r") else b"\n"
+    trailing = raw.endswith((b"\n", b"\r"))
+    if recs and not trailing:
+        recs[-1] += eol
+    order = list(range(len(recs)))
+    random.Random(seed).shuffle(order)
+    out = header + b"".join(recs[i] for i in order)
+    return out if trailing or not recs else out[: -len(eol)]
+
+
+def stage_input(data: Data, study: str, root: Path, row_order: int | None = None) -> tuple[Path, dict]:
+    """The source CSV at a fixed path without spaces: the same text in every run's task prompt, whatever the row
+    order (so the prompt, and with it every per-call seed, does not change with it). row_order None stages the
+    original file, an integer its rows permuted with that seed. The file is staged again on every run (atomically,
+    so a run that stops half way never leaves a partial file) and its sha256 is checked against the content
+    expected; that restores the original after a permuted run."""
     src = data.source_path(study)
     dst = root / "_inputs" / "e3" / f"{study}.csv"  # every study's file is source.csv
     if re.search(r"\s", str(dst)):
         raise SystemExit(f"input path {dst} contains whitespace; set --raw-dir to a path without spaces")
-    want = hashlib.sha256(src.read_bytes()).hexdigest()
-    if dst.exists():
-        if hashlib.sha256(dst.read_bytes()).hexdigest() != want:
-            raise SystemExit(f"{dst} differs from {src}; remove it and rerun")
-    else:
+    raw = src.read_bytes()
+    content = raw if row_order is None else permute_rows(raw, row_order)
+    want = hashlib.sha256(content).hexdigest()
+    if not dst.exists() or hashlib.sha256(dst.read_bytes()).hexdigest() != want:
         dst.parent.mkdir(parents=True, exist_ok=True)
         tmp = dst.with_suffix(".tmp")
-        shutil.copyfile(src, tmp)
+        tmp.write_bytes(content)
         os.replace(tmp, dst)
-    return dst
+    if hashlib.sha256(dst.read_bytes()).hexdigest() != want:
+        raise SystemExit(f"{dst} does not hold the content expected after staging")
+    return dst, {"row_order": row_order, "input_sha256": want, "source_sha256": hashlib.sha256(raw).hexdigest(),
+                 "n_records": len(raw.splitlines()) - 1}
 
 
 def other_ollama_clients() -> list[str]:
@@ -160,6 +187,10 @@ def parse_args(argv=None):
     ap.add_argument("--seed", default=None, help="integer, 'per_replicate', or omit")
     ap.add_argument("--tool-temperature", type=float, default=None, help="tool LLM temperature (default: agent's)")
     ap.add_argument("--tool-top-p", type=float, default=None, help="tool LLM top_p (default: agent's)")
+    ap.add_argument("--tool-seed", type=int, default=None,
+                    help="base seed of the tool LLM's per-call seeds (default: the agent's --seed)")
+    ap.add_argument("--row-order", default="none",
+                    help="integer: stage the source rows permuted with this seed (same path); none: original order")
     ap.add_argument("--top-logprobs", type=int, default=5, help="logprob candidates per token (0: none)")
     ap.add_argument("--replicate", type=int, default=1)
     ap.add_argument("--block", default=None)
@@ -184,6 +215,13 @@ def parse_args(argv=None):
     a = ap.parse_args(argv)
     if a.seed not in (None, "per_replicate"):
         a.seed = int(a.seed)
+    if a.row_order == "none":
+        a.row_order = None
+    else:
+        try:
+            a.row_order = int(a.row_order)
+        except ValueError:
+            ap.error(f"--row-order must be an integer or none, not {a.row_order!r}")
     if (urlparse(a.ollama_base).hostname or "") not in LOCAL:
         ap.error(f"--ollama-base {a.ollama_base} is not local")
     return a
@@ -261,9 +299,15 @@ def drop_block_ids(message_dicts: list[dict]) -> tuple[list[dict], int]:
     return out, n
 
 
-def build_condition(a) -> dict:
+def tool_seed(a):
+    """The tool LLM's base seed: --tool-seed, else the agent's --seed (so a run without it is unchanged)."""
+    return a.seed if getattr(a, "tool_seed", None) is None else a.tool_seed
+
+
+def build_condition(a, staged: dict | None = None) -> dict:
     tool_t = a.temperature if a.tool_temperature is None else a.tool_temperature
     tool_p = a.top_p if a.tool_top_p is None else a.tool_top_p
+    staged = staged or {}
     return make_condition(
         method={"name": "bdikit_agent", "bdikit": "0.11.0", "task": a.task, "prompt_id": TASK_VERSION,
                 "prompt_variant": a.prompt_variant, "recursion_limit": a.recursion_limit, "max_followups": a.max_followups, "tool_output": "raw",
@@ -271,11 +315,13 @@ def build_condition(a) -> dict:
                 "content_block_ids": "dropped", "tool_call_ids": "renumbered", "mcp_server": "hbench.runlog.mcp_logged"},
         model={"name": a.model, "tool_llm": a.model},
         decoding={"temperature": a.temperature, "top_p": a.top_p, "seed": a.seed,
-                  "tool_llm_temperature": tool_t, "tool_llm_top_p": tool_p},
+                  "tool_llm_temperature": tool_t, "tool_llm_top_p": tool_p, "tool_llm_seed": tool_seed(a)},
         engine={"transport": "litellm/openai", "protocol": a.engine_protocol, "streaming": a.streaming,
                 "top_logprobs": a.top_logprobs or None, "bdikit_cache": a.bdikit_cache,
                 "pythonhashseed": None if a.hashseed == "random" else a.hashseed},
-        data={"study": a.study}, replicate=a.replicate, block=a.block, order=a.order)
+        data={"study": a.study, "row_order": getattr(a, "row_order", None),
+              "input_sha256": staged.get("input_sha256")},
+        replicate=a.replicate, block=a.block, order=a.order)
 
 
 async def drive(a, log, prompt: str, task_msg: str, timing: dict) -> dict:
@@ -297,6 +343,7 @@ async def drive(a, log, prompt: str, task_msg: str, timing: dict) -> dict:
     v1 = a.ollama_base.rstrip("/") + "/v1"
     llm_name = f"openai/{a.model}"
     seed = log.effective_decoding.get("seed")
+    t_seed = seed if a.tool_seed is None else a.tool_seed  # the effective agent seed when --tool-seed is omitted
     tool_t, tool_p = dec["tool_llm_temperature"], dec["tool_llm_top_p"]
     env = clean_env(os.environ, OPENAI_API_KEY="ollama", OPENAI_BASE_URL=v1, LITELLM_LOCAL_MODEL_COST_MAP="True",
                     HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", BDIKIT_DEVICE=os.environ.get("BDIKIT_DEVICE", "cpu"),
@@ -304,7 +351,7 @@ async def drive(a, log, prompt: str, task_msg: str, timing: dict) -> dict:
                     HBENCH_TOOL_LLM_MODELS=llm_name,
                     HBENCH_TOOL_LLM_TEMPERATURE="default" if tool_t is None else tool_t,
                     HBENCH_TOOL_LLM_TOP_P="default" if tool_p is None else tool_p,
-                    HBENCH_TOOL_LLM_SEED="default" if seed is None else seed,
+                    HBENCH_TOOL_LLM_SEED="default" if t_seed is None else t_seed,
                     HBENCH_TOOL_LLM_TOP_LOGPROBS=a.top_logprobs or "default",
                     HBENCH_BDIKIT_CACHE=a.bdikit_cache, HBENCH_BDIKIT_SHARED=a.bdikit_shared,
                     PYTHONPATH=os.pathsep.join([str(REPO)] + ([os.environ["PYTHONPATH"]] if os.environ.get("PYTHONPATH") else [])))
@@ -455,22 +502,23 @@ def main(argv=None) -> Path:
             raise SystemExit("other Ollama clients are running (the engine audit would fail):\n  " + "\n  ".join(others))
     data = Data(a.data_root) if a.data_root else Data()
     root = Path(a.raw_dir) if a.raw_dir else raw_root()
-    src = stage_input(data, a.study, root)
+    src, staged = stage_input(data, a.study, root, a.row_order)
     prompt, upstream_llm, chatbot_sha = chatbot_prompt()
     prompt = apply_prompt_variant(prompt, a.prompt_variant)
     task_msg = task_text(a.task, str(src), a.study)
-    cond = build_condition(a)
+    cond = build_condition(a, staged)
     timing = {"t0_unix": time.time()}
     t0 = time.perf_counter()
     log = start_run(root, "e3", cond, task={"study": a.study, "kind": TASK_KIND[a.task], "mode": "end_to_end",
                                             "task": a.task, "prompt_id": TASK_VERSION, "followup": FOLLOWUP,
-                                            "input_path": str(src)},
+                                            "input_path": str(src), "input": staged},
                     models=[] if a.no_lease else [a.model], data=data, lease=not a.no_lease,
                     audit=not a.no_lease, ollama_base=a.ollama_base,
                     llm={"agent_model": f"openai/{a.model}", "api_base": a.ollama_base.rstrip("/") + "/v1",
                          "temperature": a.temperature, "top_p": a.top_p, "seed": cond["decoding"]["seed"],
                          "tool_llm": {"model": f"openai/{a.model}", "temperature": cond["decoding"]["tool_llm_temperature"],
-                                      "top_p": cond["decoding"]["tool_llm_top_p"]},
+                                      "top_p": cond["decoding"]["tool_llm_top_p"],
+                                      "seed": cond["decoding"]["tool_llm_seed"]},
                          "upstream_default_llm": upstream_llm, "streaming": a.streaming,
                          "chat_model": "langchain_litellm.ChatLiteLLM(max_retries=1, timeout=300)"},
                     prompts={"system_prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),

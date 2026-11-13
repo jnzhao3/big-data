@@ -57,3 +57,9 @@ Tasks (`tasks.py`, version `task_v1`): `smoke` (list the schema matchers), `sm` 
 | shared result cache | one per run | the cache would hide matcher variance |
 
 Repeated runs (E4) keep `--engine-protocol cold_start` (the default): back-to-back runs change how calls are computed (E1).
+
+For E4 the driver also takes:
+- `--tool-seed`: a separate base seed for the tool LLM, which defaults to `--seed`.
+- `--row-order`: the source rows permuted at the same staged path.
+
+The plans and the night script are in [../e4_agent_repeats](../e4_agent_repeats/README.md).

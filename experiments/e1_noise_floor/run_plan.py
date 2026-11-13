@@ -12,7 +12,9 @@ step produced, when, and how it ended.
     python -I run_plan.py run stage2.json --root <out root> --resume   # skip steps that already finished ok
 
 The root receives plan.json (the plan as run, with its sha256), execution.jsonl (one record per step: kind,
-times, status, the run folders it created, a tail of its output) and the run folders under raw/. Step kinds:
+times, status, the run folders it created, a tail of its output) and the run folders under raw/. A failed
+engine_check or unload stops the plan, and so does a failed step marked "stop_on_fail": true (a check step).
+Step kinds:
 
     engine_check   hbench engine check; also refuses to go on when another model is loaded (a foreign client)
     unload         unload the model: the next call starts from an empty slot and RAM prompt cache
@@ -347,7 +349,7 @@ def execute(plan: dict, root: Path, resume: bool = False) -> int:
         with open(exec_file, "a") as f:
             f.write(json.dumps(rec) + "\n")
         print(f"[{time.strftime('%H:%M:%S')}] {i:4d} {step['name']}: {rec['status']} {rec['secs']}s", flush=True)
-        if rec["status"] == "failed" and step["kind"] in ("engine_check", "unload"):
+        if rec["status"] == "failed" and (step["kind"] in ("engine_check", "unload") or step.get("stop_on_fail")):
             print(f"stopping: {rec.get('error') or rec.get('out', '')[-500:]}", flush=True)
             return 1
     failed = [n for n, r in done.items() if r.get("status") != "ok"]
