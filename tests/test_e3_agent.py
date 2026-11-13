@@ -49,6 +49,7 @@ class ScriptedOpenAI(BaseHTTPRequestHandler):
         out = {"id": "chatcmpl-x", "object": "chat.completion", "created": 1, "model": body.get("model"),
                "choices": [{"index": 0, "finish_reason": "tool_calls" if tcs else "stop", "logprobs": None,
                             "message": {"role": "assistant", "content": msg.get("content", ""),
+                                        **({"reasoning": msg["reasoning"]} if msg.get("reasoning") else {}),
                                         **({"tool_calls": tcs} if tcs else {})}}],
                "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}
         data = json.dumps(out).encode()
@@ -479,3 +480,42 @@ def test_renumber_tool_call_ids_by_position():
     other[2] = {**hist[2], "tool_call_id": "call_yy"}
     other[3] = {**hist[3], "tool_call_id": "call_zz"}
     assert run_agent.renumber_tool_call_ids(other)[0][:4] == out[:4]
+
+
+def test_message_text_and_final_table_with_thinking_blocks():
+    """A thinking model's reply is a list [thinking, text]; the visible text must be judged, not its JSON dump
+    (json.dumps escapes the newlines, so the table separator was never found)."""
+    table = "Final schema matches:\n\n| Source | Target |\n|---|---|\n| Gender | gender |"
+    content = [{"type": "thinking", "thinking": "done; present the tables? yes"}, {"type": "text", "text": table}]
+    assert not run_agent.has_final_table(json.dumps(content))      # the old path
+    text, reasoning = run_agent.message_text(content)
+    assert text == table and reasoning == "done; present the tables? yes"
+    assert run_agent.has_final_table(text)
+    assert run_agent.message_text(table) == (table, None)
+    assert run_agent.message_text(None) == (None, None)
+    two = [{"type": "text", "text": "a"}, {"type": "image_url", "image_url": {}}, {"type": "text", "text": "b"}]
+    assert run_agent.message_text(two) == ("a\nb", None)
+
+
+def test_driver_sees_final_table_of_a_thinking_reply(tmp_path, scripted, data):
+    """With reasoning in the reply (as qwen3.8 on /v1 sends it) the final table is found: no follow-ups."""
+    ScriptedOpenAI.seen.clear()
+    ScriptedOpenAI.script = [{"reasoning": "All done; present the tables.",
+                              "content": "Final schema matches:\n\n| Source | Target |\n|---|---|\n| Gender | gender |"}]
+    rd = run_agent.main(["--study", "clark", "--task", "smoke", "--model", MODEL, "--temperature", "0", "--top-p", "1",
+                         "--seed", "1", "--engine-protocol", "natural", "--ollama-base", scripted,
+                         "--raw-dir", str(tmp_path / "raw"), "--bdikit-shared", str(tmp_path / "shared"),
+                         "--no-lease", "--allow-other-clients"])
+    ev = read_events(rd)
+    turns = [e for e in ev if e["type"] == "note" and e.get("kind") == "turn_end"]
+    end = next(e for e in ev if e["type"] == "run_end" and e["proc"] == "driver")
+    assert len(turns) == 1 and turns[0]["final_table"] and turns[0]["last_reasoning_chars"] > 0
+    assert end["outcome"] == "final_table" and end["followups"] == 0
+    assert (Path(rd) / "claims.md").read_text().startswith("Final schema matches:")
+
+
+def test_modelfile_nb1024_only_pins_batch():
+    import re
+    text = (E3 / "Modelfile.qwen3.8-27b-bdikit-nb1024").read_text()
+    assert re.findall(r"^FROM .*$", text, re.M) == ["FROM qwen3.8-27b-bdikit"]
+    assert re.findall(r"^(?!#)\S.*$", text, re.M) == ["FROM qwen3.8-27b-bdikit", "PARAMETER num_batch 1024"]

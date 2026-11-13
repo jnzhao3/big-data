@@ -97,6 +97,24 @@ def has_final_table(text: str | None) -> bool:
     return bool(text) and bool(_TABLE_SEP.search(text))
 
 
+def message_text(content) -> tuple[str | None, str | None]:
+    """The visible text and the reasoning of an AIMessage content: a string as is; a list of blocks (a thinking
+    model's reply via langchain_litellm: [{"type": "thinking"}, {"type": "text"}]) as its text blocks joined by
+    newlines, and its thinking blocks likewise. The turn checks (final table, question, JSON tool call, language)
+    and claims.md use the visible text."""
+    if content is None or isinstance(content, str):
+        return content, None
+    texts, thoughts = [], []
+    for b in content:
+        if isinstance(b, str):
+            texts.append(b)
+        elif isinstance(b, dict) and b.get("type") == "text":
+            texts.append(b.get("text", ""))
+        elif isinstance(b, dict) and b.get("type") in THINKING_BLOCKS:
+            thoughts.append(b.get("thinking", ""))
+    return "\n".join(texts), ("\n".join(thoughts) if thoughts else None)
+
+
 def stage_input(data: Data, study: str, root: Path) -> Path:
     """The source CSV at a fixed path without spaces (the same text in every run's task prompt)."""
     src = data.source_path(study)
@@ -361,11 +379,11 @@ async def drive(a, log, prompt: str, task_msg: str, timing: dict) -> dict:
                     state = await agent.aget_state(config)
                     msgs = state.values.get("messages", []) if state and state.values else []
                     last = next((m for m in reversed(msgs) if isinstance(m, AIMessage)), None)
-                    text = None if last is None else (last.content if isinstance(last.content, str)
-                                                      else json.dumps(last.content))
+                    text, reasoning = message_text(None if last is None else last.content)
                     info.update(final_table=has_final_table(text), asked_question=bool(text) and "?" in text[-300:],
                                 text_json_tool_call=text_json_tool_call(text) is not None and not (last and last.tool_calls),
-                                non_ascii_share=non_ascii_share(text), n_messages=len(msgs), last_text=text)
+                                non_ascii_share=non_ascii_share(text), n_messages=len(msgs), last_text=text,
+                                last_reasoning_chars=None if reasoning is None else len(reasoning))
                     log.emit("note", kind="turn_end", **info)
                     out["turns"].append(info)
                     out["final_text"], out["messages"] = text, messages_to_dict(msgs)

@@ -1,0 +1,8 @@
+# Derived model for E3/E4 runs from 2026-11-12 on: qwen3.8-27b-bdikit with a fixed batch size, nothing else changed.
+# Ollama 0.40 picks -b/-ub 512 or 1024 at load time from free RAM; the batch size changes the logprobs of a long first
+# prompt. num_batch in a /v1 request is ignored, so it is pinned here (verified: a /v1 load runs "-b 1024 -ub 1024").
+# Same blobs, renderer, parser and params as qwen3.8-27b-bdikit. Do not mix the two tags in one run or in overlapping
+# runs: a different num_batch forces a model reload.
+# Create (after qwen3.8-27b-bdikit): ollama create qwen3.8-27b-bdikit-nb1024 -f Modelfile.qwen3.8-27b-bdikit-nb1024
+FROM qwen3.8-27b-bdikit
+PARAMETER num_batch 1024
