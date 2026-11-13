@@ -160,14 +160,27 @@ def stage_input(data: Data, study: str, root: Path, row_order: int | None = None
                  "n_records": len(raw.splitlines()) - 1}
 
 
-def other_ollama_clients() -> list[str]:
-    try:
-        out = subprocess.run(["ps", "-axo", "pid,command"], capture_output=True, text=True, timeout=10).stdout
-    except (OSError, subprocess.SubprocessError):
-        return []
-    me = str(os.getpid())
-    return [ln.strip() for ln in out.splitlines()
-            if any(c in ln for c in OTHER_CLIENTS) and not ln.strip().startswith(me) and "grep" not in ln]
+def other_ollama_clients(ps_text: str | None = None, pid: int | None = None) -> list[str]:
+    """Process lines of known Ollama clients other than this process and its ancestors: a driver started by
+    run_plan.py (E1's executor, which E4's nights use) has run_plan.py as its parent, and that is not another
+    client. ps_text ("pid ppid command" lines) and pid are for tests."""
+    if ps_text is None:
+        try:
+            ps_text = subprocess.run(["ps", "-axo", "pid=,ppid=,command="], capture_output=True, text=True,
+                                     timeout=10).stdout
+        except (OSError, subprocess.SubprocessError):
+            return []
+    procs = {}
+    for ln in ps_text.splitlines():
+        parts = ln.split(None, 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            procs[int(parts[0])] = (int(parts[1]), parts[2])
+    mine, cur = set(), os.getpid() if pid is None else pid
+    while cur and cur not in mine:  # this process and its ancestors
+        mine.add(cur)
+        cur = procs.get(cur, (0, ""))[0]
+    return [f"{p} {cmd}" for p, (_, cmd) in sorted(procs.items())
+            if p not in mine and any(c in cmd for c in OTHER_CLIENTS) and "grep" not in cmd]
 
 
 def clean_env(base: dict, **extra) -> dict:

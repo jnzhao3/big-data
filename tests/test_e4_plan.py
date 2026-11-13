@@ -94,7 +94,20 @@ def test_prepare_links_the_shared_dirs(tmp_path, monkeypatch):
         assert (tmp_path / "e4_t0cache" / sub).resolve() == (tmp_path / "shared" / sub).resolve()
     (tmp_path / "e4_t0cache" / "runs" / "old").write_text("x")
     assert "must start from an empty" in mp.prepare(plan)
-    assert mp.prepare(mp.make_plan([mp.parse_cell("clark:D:1:1")], "x")).startswith("no shared")
+    assert "no shared T=0 cache" in mp.prepare(mp.make_plan([mp.parse_cell("clark:D:1:1")], "x"))
+
+
+def test_prepare_refuses_a_data_root_without_the_studies(tmp_path, monkeypatch, data):
+    plan = mp.make_plan([mp.parse_cell("clark:D:1:1"), mp.parse_cell("huang:Z")], "x")
+    assert "ok for ['clark', 'huang']" in mp.check_data(plan)
+    monkeypatch.setenv("HBENCH_DATA", str(tmp_path / "nodata"))             # a pinned checkout without datasets/
+    with pytest.raises(SystemExit, match="HBENCH_DATA"):
+        mp.prepare(plan)
+
+
+def test_out_parent_is_created(tmp_path):
+    out = tmp_path / "plans" / "deep" / "n1.json"
+    assert mp.main(["night", "N1", "--out", str(out)]) == 0 and json.loads(out.read_text())["name"] == "e4_N1"
 
 
 def test_run_plan_stops_at_a_failed_check_step(tmp_path, data):
@@ -151,5 +164,5 @@ def test_compare_and_summary(tmp_path, capsys):
 def test_night_script_resumes_and_summarizes():
     text = (E4 / "night.sh").read_text()
     for needle in ("caffeinate -i -s", "api/version", "i4Tools", "run_plan.py\" run", "--resume", "summary --root",
-                   "prepare"):
+                   "prepare", "HBENCH_DATA", "--git-common-dir", "not starting the night"):
         assert needle in text, needle

@@ -605,3 +605,29 @@ def test_driver_row_order_keeps_the_prompt_and_records_the_order(tmp_path, scrip
     rd3, _ = _vm_run(tmp_path, scripted)                                      # the next default run restores
     assert staged.read_bytes() == data.source_path("clark").read_bytes()
     assert _header(rd3)["task"]["input"]["input_sha256"] == h0["task"]["input"]["input_sha256"]
+
+
+def test_other_clients_skips_own_ancestors():
+    """Under run_plan.py (E4's nights) the driver's parent is run_plan.py: not another client. An unrelated
+    run_plan.py still is."""
+    ps = ("1 0 /sbin/launchd\n"
+          "100 1 python -s experiments/e1_noise_floor/run_plan.py run n1.json --root r --resume\n"
+          "200 100 python -s experiments/e3_agent/run_agent.py --study clark\n"
+          "300 1 python -I experiments/e1_noise_floor/run_plan.py run other.json --root s\n"
+          "400 1 grep run_plan.py\n")
+    assert run_agent.other_ollama_clients(ps, pid=200) == [
+        "300 python -I experiments/e1_noise_floor/run_plan.py run other.json --root s"]
+    assert run_agent.other_ollama_clients(ps.replace("300 1 python -I", "300 100 python -I"), pid=200) != []
+
+
+def test_other_clients_live_under_a_run_plan_parent(tmp_path):
+    """The real ps: a child of a process whose command line names run_plan.py does not see it as a client."""
+    fake = tmp_path / "run_plan.py"
+    fake.write_text("import subprocess, sys\n"
+                    "code = 'import sys; sys.path.insert(0, sys.argv[1]); import run_agent; "
+                    "print(repr(run_agent.other_ollama_clients()))'\n"
+                    "p = subprocess.run([sys.executable, '-s', '-c', code, sys.argv[1]], capture_output=True, text=True)\n"
+                    "print(p.stdout or p.stderr)\n")
+    out = subprocess.run([sys.executable, "-s", str(fake), str(E3)], capture_output=True, text=True,
+                         env={**os.environ, "PYTHONPATH": str(REPO_ROOT)}).stdout
+    assert str(fake) not in out, out

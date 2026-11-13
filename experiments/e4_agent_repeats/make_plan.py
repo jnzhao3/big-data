@@ -37,6 +37,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
+sys.path.insert(0, str(REPO))  # this checkout's hbench
 MODEL = "qwen3.8-27b-bdikit-nb1024"
 RAW_DIR = Path.home() / "hbench_raw"
 T0_CACHE = RAW_DIR / "e4_t0cache"
@@ -167,10 +168,31 @@ def night_cells(night: str, studies=DEFAULT_STUDIES) -> list[str]:
 
 # ------------------------------------------------------------------ night helpers
 
+def check_data(plan: dict) -> str:
+    """Every study of the plan has its source CSV and SM ground truth under the data root (HBENCH_DATA, else the
+    checkout's datasets/, which a pinned run checkout does not have). Raises SystemExit otherwise."""
+    from hbench.data import Data, default_root
+    root, data = default_root(), Data()
+    missing = []
+    for study in sorted({c["study"] for c in plan["cells"]}):
+        try:
+            if not data.source_path(study).exists():
+                raise FileNotFoundError(data.source_path(study))
+            data.sm_gold(study, "gdc-sm")
+        except Exception as e:  # noqa: BLE001  (any failure to read a study's files)
+            missing.append(f"{study}: {type(e).__name__}: {e}")
+    if missing:
+        raise SystemExit(f"data root {root} is missing files (set HBENCH_DATA to the main checkout's datasets/):\n  "
+                         + "\n  ".join(missing))
+    return f"data root {root}: ok for {sorted({c['study'] for c in plan['cells']})}"
+
+
 def prepare(plan: dict) -> str:
-    """Create the shared T=0 tool cache (models/ and embeddings/ linked to the shared ones, an empty runs/)."""
+    """Check the data root, then create the shared T=0 tool cache (models/ and embeddings/ linked to the shared
+    ones, an empty runs/)."""
+    msg = check_data(plan) if plan.get("cells") else "no runs in this plan"
     if not plan.get("t0_cache"):
-        return "no shared T=0 cache in this plan"
+        return msg + "; no shared T=0 cache in this plan"
     cache = Path(plan["t0_cache"])
     cache.mkdir(parents=True, exist_ok=True)
     (cache / "runs").mkdir(exist_ok=True)
@@ -185,7 +207,7 @@ def prepare(plan: dict) -> str:
         else:
             link.symlink_to(target, target_is_directory=True)
     n = len(list((cache / "runs").iterdir()))
-    return f"{cache}: ready, {n} cached results in runs/" + (
+    return msg + f"; {cache}: ready, {n} cached results in runs/" + (
         " (Z1 must start from an empty runs/ to be a real check)" if n and any(
             c["arm"] == "Z1" for c in plan["cells"]) else "")
 
@@ -334,6 +356,7 @@ def main(argv=None) -> int:
             specs, name = a.cells, a.name
         plan = make_plan([parse_cell(s) for s in specs], name, a.raw_dir, a.t0_cache, a.sample_t, a.sample_top_p,
                          a.model, a.turn_timeout)
+        Path(a.out).parent.mkdir(parents=True, exist_ok=True)
         Path(a.out).write_text(json.dumps(plan, indent=1) + "\n")
         n_runs = sum(1 for s in plan["steps"] if s.get("cell"))
         print(f"{a.out}: {len(plan['steps'])} steps, {n_runs} runs")
