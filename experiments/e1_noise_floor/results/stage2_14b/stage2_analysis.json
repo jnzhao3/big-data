@@ -1,0 +1,269 @@
+{
+ "root": "<raw run root, outside the repo>",
+ "2a": {
+  "back_to_back": {
+   "n_columns": 20,
+   "shapes": {
+    "first_differs_rest_equal": 20
+   },
+   "same_sequence": 14,
+   "same_final": 20,
+   "pairs_bitwise": "20/60",
+   "diverged_pairs": {
+    "diverged": 40,
+    "text_changed": 12,
+    "final_changed": 0
+   },
+   "first_call_lineage_by_replicate": [
+    {
+     "B": 1,
+     "B+b": 19
+    },
+    {
+     "B+S": 20
+    },
+    {
+     "B+S": 20
+    }
+   ]
+  },
+  "interleaved": {
+   "n_columns": 20,
+   "shapes": {
+    "all_bitwise_equal": 17,
+    "first_differs_rest_equal": 2,
+    "other": 1
+   },
+   "same_sequence": 18,
+   "same_final": 20,
+   "pairs_bitwise": "54/60",
+   "diverged_pairs": {
+    "diverged": 6,
+    "text_changed": 4,
+    "final_changed": 0
+   },
+   "first_call_lineage_by_replicate": [
+    {
+     "B": 1,
+     "B+b": 19
+    },
+    {
+     "B+S": 3,
+     "B+b": 17
+    },
+    {
+     "B+S": 2,
+     "B+b": 18
+    }
+   ]
+  },
+  "unload_each": {
+   "n_columns": 20,
+   "shapes": {
+    "all_bitwise_equal": 20
+   },
+   "same_sequence": 20,
+   "same_final": 20,
+   "pairs_bitwise": "60/60",
+   "diverged_pairs": {
+    "diverged": 0,
+    "text_changed": 0,
+    "final_changed": 0
+   },
+   "first_call_lineage_by_replicate": [
+    {
+     "B": 20
+    },
+    {
+     "B": 20
+    },
+    {
+     "B": 20
+    }
+   ]
+  }
+ },
+ "lineage_classes_by_step": {
+  "step0": {
+   "B": 62,
+   "B+b": 73,
+   "B+S": 45
+  },
+  "step1": {
+   "B+G": 62,
+   "B+b+G": 73,
+   "B+G+S": 45
+  },
+  "step2": {
+   "B+b+G": 97,
+   "B+b+G+S": 23,
+   "B+G+S": 18,
+   "B+G": 24
+  },
+  "step3": {
+   "B+b+G": 20,
+   "B+b+G+S": 8
+  },
+  "step4": {
+   "B+b+G": 7,
+   "B+b+G+S": 2
+  }
+ },
+ "2b": {
+  "cold:no_generated": {
+   "n_calls": 20,
+   "bitwise": 20,
+   "same_output": 20
+  },
+  "cold:reused_generated": {
+   "n_calls": 41,
+   "bitwise": 0,
+   "same_output": 35
+  },
+  "cold_start:no_generated": {
+   "n_calls": 20,
+   "bitwise": 20,
+   "same_output": 20
+  },
+  "cold_start:reused_generated": {
+   "n_calls": 41,
+   "bitwise": 41,
+   "same_output": 41
+  },
+  "shifts": {
+   "cold": {
+    "n": 4112,
+    "median": 0.02608579397201538,
+    "p90": 0.11072842106223107,
+    "p99": 0.30588698416948273,
+    "max": 1.7619490626530023
+   },
+   "cold_start": {
+    "n": 4535,
+    "median": 0.0,
+    "p90": 0.0,
+    "p99": 0.0,
+    "max": 0.0
+   }
+  }
+ },
+ "2c": {
+  "column": {
+   "n": 383,
+   "below_0.05": 170,
+   "below_0.15": 230,
+   "below_0.5": 303,
+   "q": {
+    "0.01": 0.0013657808303833008,
+    "0.1": 0.009056031703948975,
+    "0.5": 0.09539413452148438
+   }
+  },
+  "target": {
+   "n": 171,
+   "below_0.05": 97,
+   "below_0.15": 150,
+   "below_0.5": 162,
+   "q": {
+    "0.01": 0.000179290771484375,
+    "0.1": 0.004825711250305176,
+    "0.5": 0.039600372314453125
+   }
+  },
+  "tool": {
+   "n": 740,
+   "below_0.05": 267,
+   "below_0.15": 377,
+   "below_0.5": 462,
+   "q": {
+    "0.01": 0.0013657808303833008,
+    "0.1": 0.011447906494140625,
+    "0.5": 0.14596182107925415
+   }
+  },
+  "noise_budget": {
+   "stage2_cold": {
+    "expected_divergences_before_final_value_per_episode": 0.19988707989168772,
+    "n_final_decisions": 171,
+    "n_shift_samples": 4112
+   },
+   "stage1_single_token": {
+    "expected_divergences_before_final_value_per_episode": 0.1652387615254906,
+    "n_final_decisions": 171,
+    "n_shift_samples": 4890
+   }
+  },
+  "observed_natural_pairs": {
+   "diverged": 46,
+   "text_changed": 16,
+   "final_changed": 0
+  },
+  "by_candidates": {
+   "in_shortlist": {
+    "n_final_decisions": 63,
+    "median_margin": 0.06728750467300415,
+    "below_0.05": 23,
+    "below_0.15": 51,
+    "below_0.5": 54,
+    "natural_pairs": {
+     "diverged": 16,
+     "text_changed": 4,
+     "final_changed": 0
+    },
+    "n_columns": 8
+   },
+   "not_annotated": {
+    "n_final_decisions": 81,
+    "median_margin": 0.039600372314453125,
+    "below_0.05": 52,
+    "below_0.15": 72,
+    "below_0.5": 81,
+    "natural_pairs": {
+     "diverged": 22,
+     "text_changed": 8,
+     "final_changed": 0
+    },
+    "n_columns": 9
+   },
+   "not_in_shortlist": {
+    "n_final_decisions": 27,
+    "median_margin": 0.013030946254730225,
+    "below_0.05": 22,
+    "below_0.15": 27,
+    "below_0.5": 27,
+    "natural_pairs": {
+     "diverged": 8,
+     "text_changed": 4,
+     "final_changed": 0
+    },
+    "n_columns": 3
+   }
+  }
+ },
+ "single_turn": {
+  "runs": [
+   "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r6-clark-20261111T155811Z-2049",
+   "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r7-clark-20261111T155916Z-e4bd",
+   "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r8-clark-20261111T155943Z-7552"
+  ],
+  "bitwise_vs_previous": [
+   0,
+   16
+  ],
+  "n_calls": [
+   16,
+   16,
+   16
+  ],
+  "single_token_calls": [
+   0,
+   16,
+   16
+  ]
+ },
+ "counts": {
+  "episodes": 180,
+  "replay_runs": 40,
+  "single_turn_runs": 3
+ }
+}

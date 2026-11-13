@@ -1,0 +1,21 @@
+study,column,candidates,final_T0,correct_T0,n_sampled,finals,n_distinct,changed_vs_T0,same_sequence_as_T0,accuracy,final_call_value_change,final_call_no_answer,final_call_other_answer,final_call_predicted,seed1_repeat_bitwise,seed1_repeat_same_final
+clark,Age,in_shortlist,age_at_diagnosis,True,5,"[[""age_at_diagnosis"", 5]]",1,0,0,1.0,0.0,0.0,0.0,6.164951021903065e-07,True,True
+clark,BMI,in_shortlist,bmi,True,5,"[[""bmi"", 5]]",1,0,0,1.0,0.0,0.0,0.0,8.344650197500414e-07,True,True
+clark,Case_ID,not_annotated,submitter_id,False,5,"[[""submitter_id"", 4], [""chip_id"", 1]]",2,1,0,0.0,0.375,0.375,0.0,3.223497278437293e-06,True,True
+clark,Ethnicity_Self_Identify,in_shortlist,ethnicity,True,5,"[[""ethnicity"", 5]]",1,0,0,1.0,0.25,0.0,0.25,5.938394705262695e-05,False,True
+clark,Gender,in_shortlist,gender,True,5,"[[""gender"", 5]]",1,0,0,1.0,0.0,0.0,0.0,4.1723250703284975e-06,False,True
+clark,Race,in_shortlist,race,True,5,"[[""race"", 5]]",1,0,0,1.0,0.0,0.0,0.0,2.426821475998153e-07,True,True
+clark,Tumor/Normal,not_in_shortlist,analyte_type_id,False,5,"[[""NONE"", 4], [""analyte_type_id"", 1]]",2,4,0,0.0,0.875,0.5,0.375,8.661933547426948e-06,True,True
+clark,Tumor_Site,in_shortlist,primary_site,True,5,"[[""primary_site"", 5]]",1,0,0,1.0,0.0,0.0,0.0,1.348235368459072e-06,False,True
+clark,Tumor_Site_Other,not_annotated,max_tumor_bulk_site,False,5,"[[""max_tumor_bulk_site"", 3], [""NONE"", 2]]",2,2,0,0.4,0.75,0.375,0.375,6.210572971121486e-06,False,True
+clark,Tumor_Size_cm,not_in_shortlist,NONE,False,5,"[[""NONE"", 5]]",1,0,0,0.0,0.0,0.0,0.0,4.887580750789766e-06,False,True
+krug,Age.in.Month,in_shortlist,age_at_diagnosis,True,5,"[[""age_at_diagnosis"", 5]]",1,0,0,1.0,0.25,0.0,0.25,1.8110671552440394e-06,True,True
+krug,Ischemia.Time.in.Minutes,not_in_shortlist,NONE,False,5,"[[""NONE"", 5]]",1,0,0,0.0,0.0,0.0,0.0,2.3841859047024627e-06,True,True
+krug,NMF.Cluster,not_annotated,NONE,True,5,"[[""NONE"", 5]]",1,0,0,1.0,0.25,0.25,0.0,2.145767183492353e-06,False,True
+krug,NMF.Cluster.Membership.Score,not_annotated,NONE,True,5,"[[""NONE"", 5]]",1,0,0,1.0,0.375,0.375,0.0,2.0677529869450595e-06,False,True
+krug,PAM50,not_annotated,NONE,True,5,"[[""NONE"", 5]]",1,0,0,1.0,0.0,0.0,0.0,4.053115816304853e-06,True,True
+krug,Sample.ID,not_annotated,submitter_id,False,5,"[[""submitter_id"", 5]]",1,0,0,0.0,0.25,0.25,0.0,1.9230520924562455e-06,True,True
+krug,Sample.IDs,not_annotated,samples,False,5,"[[""samples"", 5]]",1,0,0,0.0,0.25,0.25,0.0,5.125999500421585e-06,True,True
+krug,TMT.Channel,not_annotated,NONE,True,5,"[[""NONE"", 3], [""channel"", 2]]",2,2,0,0.6,0.25,0.25,0.0,2.7836502779488015e-06,True,True
+krug,TMT.Plex,not_annotated,NONE,True,5,"[[""NONE"", 5]]",1,0,0,1.0,0.375,0.375,0.0,2.2649764375159975e-06,True,True
+krug,Tumor.Stage,in_shortlist,ajcc_clinical_stage,False,5,"[[""ajcc_pathologic_stage"", 3], [""ajcc_clinical_stage"", 2]]",2,3,0,0.6,0.0,0.0,0.0,1.6292504706916233e-05,True,True

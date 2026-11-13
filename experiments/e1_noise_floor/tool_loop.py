@@ -143,17 +143,25 @@ class Tables:
         return json.dumps({"error": f"unknown tool {name!r}"})
 
 
-def next_messages(res, transport: str, results: list[str]) -> list[dict]:
-    """The assistant turn as the server returned it, then one tool message per call, in the transport's format."""
+def call_id(step: int, i: int) -> str:
+    return f"call_{step}_{i}"
+
+
+def next_messages(res, transport: str, results: list[str], step: int = 0) -> list[dict]:
+    """The assistant turn as the server returned it, then one tool message per call, in the transport's format.
+    Ollama gives every tool call a random id ("call_x1vkyext"), which the next request carries back. hbench derives
+    each sampled call's seed from the prompt (rule call/1), so a random id would give a repeated episode other
+    seeds from its second call on; ids are replaced by call_<step>_<index>."""
     if transport == "ollama":
         msg = res.response["message"]
-        out = [{"role": "assistant", "content": msg.get("content", ""), "tool_calls": msg.get("tool_calls")}]
+        tcs = [{**tc, "id": call_id(step, i)} if "id" in tc else tc for i, tc in enumerate(msg.get("tool_calls") or [])]
+        out = [{"role": "assistant", "content": msg.get("content", ""), "tool_calls": tcs or msg.get("tool_calls")}]
         out += [{"role": "tool", "content": r, "tool_name": tc["name"]} for tc, r in zip(res.tool_calls, results)]
     else:
         msg = res.response["choices"][0]["message"]
-        raw = msg.get("tool_calls") or []
+        raw = [{**tc, "id": call_id(step, i)} for i, tc in enumerate(msg.get("tool_calls") or [])]
         out = [{"role": "assistant", "content": msg.get("content") or "", "tool_calls": raw}]
-        out += [{"role": "tool", "tool_call_id": tc.get("id"), "content": r} for tc, r in zip(raw, results)]
+        out += [{"role": "tool", "tool_call_id": tc["id"], "content": r} for tc, r in zip(raw, results)]
     return out
 
 
@@ -167,24 +175,30 @@ def text_target(text: str | None) -> str | None:
 
 
 def condition(study: str, column: str, *, replicate: int, block, order, protocol: str, transport: str, model: str,
-              temperature, seed, max_steps: int) -> dict:
+              temperature, seed, max_steps: int, think: bool | None = None) -> dict:
     return make_condition(method={"name": "e1_tool_loop", "tools": TOOLS_VERSION, "k": SHORTLIST_K,
                                   "max_steps": max_steps},
-                          model={"name": model}, decoding={"temperature": temperature, "seed": seed},
+                          model={"name": model}, decoding={"temperature": temperature, "seed": seed,
+                                    **({"think": think} if think is not None else {})},
                           engine={"transport": transport, "num_ctx": 32768, "protocol": protocol},
                           data={"study": study, "column": column}, replicate=replicate, block=block, order=order)
 
 
 def run_episode(study: str, column: str, *, replicate: int = 1, block=None, order=None, protocol: str = "natural",
                 transport: str = "ollama", model: str = MODEL, temperature=0, seed=1, max_steps: int = 5,
+                think: bool | None = None,
                 raw_dir=None, data: Data | None = None, tables: Tables | None = None) -> dict:
-    """Run one episode as its own hbench run; returns its summary (also written to <run_dir>/episode.json)."""
+    """Run one episode as its own hbench run; returns its summary (also written to <run_dir>/episode.json).
+    At T>0 the seed is a base: LLMClient sends each call its own seed derived from it (hbench.seeds, rule
+    call/1), because llama-server reseeds its sampler with every request's seed. think is sent on /api/chat
+    only (None: the model's default; /v1 has no switch, and qwen3.x thinks there by default). The reasoning of
+    earlier steps is not sent back (next_messages keeps content and tool calls), as Qwen's own template does."""
     data = data or Data(default_root())
     tables = tables or Tables(data, study)
     if column not in tables.src.columns:
         raise ValueError(f"{column!r} is not a source column of {study}")
     cond = condition(study, column, replicate=replicate, block=block, order=order, protocol=protocol,
-                     transport=transport, model=model, temperature=temperature, seed=seed, max_steps=max_steps)
+                     transport=transport, model=model, temperature=temperature, seed=seed, max_steps=max_steps, think=think)
     log = start_run(Path(raw_dir) if raw_dir else raw_root(), "e1_tool_loop", cond,
                     task={"kind": "sm", "study": study, "column": column}, models=[model],
                     prompts={"system": SYSTEM, "user": USER, "tools": json.dumps(TOOLS)}, data=data)
@@ -208,7 +222,7 @@ def run_episode(study: str, column: str, *, replicate: int = 1, block=None, orde
                 final, final_res, status = (t.strip() if isinstance(t, str) else None), res, "submitted"
                 final_key = "target" if i == 0 else f"target@{i}"
                 break
-            msgs += next_messages(res, transport, results)
+            msgs += next_messages(res, transport, results, step)
         shown = tables.shortlist(column)
         ev = final_res.evidence(key=final_key) if final_res is not None else None
         pred = [] if final in (None, "", "NONE") else [final]
@@ -241,11 +255,13 @@ def main(argv=None) -> int:
     ap.add_argument("--temperature", type=float, default=0)
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--max-steps", type=int, default=5)
+    ap.add_argument("--think", choices=["on", "off"], default=None, help="/api/chat only; unset = model default")
     ap.add_argument("--raw-dir", default=None, help="run logs (default: $HBENCH_RAW or ~/hbench_raw, outside the repo)")
     a = ap.parse_args(argv)
     s = run_episode(a.study, a.column, replicate=a.replicate, block=a.block, order=a.order,
                     protocol=a.engine_protocol, transport=a.transport, model=a.model, temperature=a.temperature,
-                    seed=a.seed, max_steps=a.max_steps, raw_dir=a.raw_dir)
+                    seed=a.seed, max_steps=a.max_steps, raw_dir=a.raw_dir,
+                    think=None if a.think is None else a.think == "on")
     print(json.dumps({k: v for k, v in s.items() if k != "steps"}))
     for st in s["steps"]:
         print(f"  step {st['step']}: {st['path_class']:12s} {json.dumps(st['tool_calls'] or st['text'])[:160]}")

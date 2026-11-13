@@ -1,0 +1,228 @@
+{
+ "root": "<raw run root, outside the repo>",
+ "2a": {
+  "back_to_back": {
+   "n_columns": 20,
+   "shapes": {
+    "all_bitwise_equal": 20
+   },
+   "same_sequence": 20,
+   "same_final": 20,
+   "pairs_bitwise": "60/60",
+   "diverged_pairs": {
+    "diverged": 0,
+    "text_changed": 0,
+    "final_changed": 0
+   },
+   "first_call_lineage_by_replicate": [
+    {
+     "B": 20
+    },
+    {
+     "B+b": 20
+    },
+    {
+     "B+b": 20
+    }
+   ]
+  },
+  "interleaved": {
+   "n_columns": 20,
+   "shapes": {
+    "all_bitwise_equal": 20
+   },
+   "same_sequence": 20,
+   "same_final": 20,
+   "pairs_bitwise": "60/60",
+   "diverged_pairs": {
+    "diverged": 0,
+    "text_changed": 0,
+    "final_changed": 0
+   },
+   "first_call_lineage_by_replicate": [
+    {
+     "B": 20
+    },
+    {
+     "B+b": 1,
+     "B": 19
+    },
+    {
+     "B+b": 3,
+     "B": 17
+    }
+   ]
+  },
+  "unload_each": {
+   "n_columns": 20,
+   "shapes": {
+    "all_bitwise_equal": 14,
+    "other": 5,
+    "first_differs_rest_equal": 1
+   },
+   "same_sequence": 20,
+   "same_final": 20,
+   "pairs_bitwise": "48/60",
+   "diverged_pairs": {
+    "diverged": 12,
+    "text_changed": 0,
+    "final_changed": 0
+   },
+   "first_call_lineage_by_replicate": [
+    {
+     "B+b": 15,
+     "B": 5
+    },
+    {
+     "B+b": 13,
+     "B": 7
+    },
+    {
+     "B+b": 14,
+     "B": 6
+    }
+   ]
+  }
+ },
+ "lineage_classes_by_step": {
+  "step0": {
+   "B": 94,
+   "B+b": 86
+  },
+  "step1": {
+   "B": 180
+  },
+  "step2": {
+   "B": 171
+  },
+  "step3": {
+   "B": 27
+  }
+ },
+ "2b": {
+  "cold:no_generated": {
+   "n_calls": 62,
+   "bitwise": 19,
+   "same_output": 60
+  },
+  "cold_start:no_generated": {
+   "n_calls": 62,
+   "bitwise": 29,
+   "same_output": 60
+  },
+  "shifts": {
+   "cold": {
+    "n": 10333,
+    "median": 0.0038245916439336725,
+    "p90": 0.028112725925166168,
+    "p99": 0.08926864624023444,
+    "max": 1.0113105773925781
+   },
+   "cold_start": {
+    "n": 10333,
+    "median": 0.0,
+    "p90": 0.02204892337322236,
+    "p99": 0.07468499526381499,
+    "max": 1.0113105773925781
+   }
+  }
+ },
+ "2c": {
+  "column": {
+   "n": 459,
+   "below_0.05": 255,
+   "below_0.15": 360,
+   "below_0.5": 405,
+   "q": {
+    "0.01": 0.0007724761962890625,
+    "0.1": 0.0074176788330078125,
+    "0.5": 0.034862518310546875
+   }
+  },
+  "target": {
+   "n": 180,
+   "below_0.05": 144,
+   "below_0.15": 180,
+   "below_0.5": 180,
+   "q": {
+    "0.01": 1.138448715209961e-05,
+    "0.1": 0.00241851806640625,
+    "0.5": 0.01746368408203125
+   }
+  },
+  "tool": {
+   "n": 819,
+   "below_0.05": 417,
+   "below_0.15": 576,
+   "below_0.5": 657,
+   "q": {
+    "0.01": 0.0004367232322692871,
+    "0.1": 0.007236480712890625,
+    "0.5": 0.0406646728515625
+   }
+  },
+  "noise_budget": {
+   "stage2_cold": {
+    "expected_divergences_before_final_value_per_episode": 0.11695484800584965,
+    "n_final_decisions": 180,
+    "n_shift_samples": 10333
+   },
+   "stage1_single_token": {
+    "expected_divergences_before_final_value_per_episode": 0.0,
+    "n_final_decisions": 180,
+    "n_shift_samples": 15291
+   }
+  },
+  "observed_natural_pairs": {
+   "diverged": 0,
+   "text_changed": 0,
+   "final_changed": 0
+  },
+  "by_candidates": {
+   "in_shortlist": {
+    "n_final_decisions": 72,
+    "median_margin": 0.040202975273132324,
+    "below_0.05": 45,
+    "below_0.15": 72,
+    "below_0.5": 72,
+    "natural_pairs": {
+     "diverged": 0,
+     "text_changed": 0,
+     "final_changed": 0
+    },
+    "n_columns": 8
+   },
+   "not_annotated": {
+    "n_final_decisions": 81,
+    "median_margin": 0.016761720180511475,
+    "below_0.05": 72,
+    "below_0.15": 81,
+    "below_0.5": 81,
+    "natural_pairs": {
+     "diverged": 0,
+     "text_changed": 0,
+     "final_changed": 0
+    },
+    "n_columns": 9
+   },
+   "not_in_shortlist": {
+    "n_final_decisions": 27,
+    "median_margin": 0.01128387451171875,
+    "below_0.05": 27,
+    "below_0.15": 27,
+    "below_0.5": 27,
+    "natural_pairs": {
+     "diverged": 0,
+     "text_changed": 0,
+     "final_changed": 0
+    },
+    "n_columns": 3
+   }
+  }
+ },
+ "counts": {
+  "episodes": 180,
+  "replay_runs": 40,
+  "single_turn_runs": 0
+ }
+}

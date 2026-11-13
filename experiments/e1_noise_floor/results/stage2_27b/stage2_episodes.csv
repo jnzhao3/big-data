@@ -1,0 +1,181 @@
+run,block,order,replicate,study,column,candidates,protocol,n_calls,loop_status,final,final_margin,lineages
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T050231Z-1747,back_to_back,63,1,clark,Case_ID,not_annotated,natural,3,submitted,submitter_id,0.0269317626953125,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T050526Z-9952,back_to_back,66,1,clark,Tumor/Normal,not_in_shortlist,natural,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T050818Z-8ca5,back_to_back,69,1,clark,Gender,in_shortlist,natural,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T050942Z-4a5f,back_to_back,72,1,clark,Age,in_shortlist,natural,3,submitted,age_at_diagnosis,0.05583769083023071,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T051213Z-0fd0,back_to_back,75,1,clark,BMI,in_shortlist,natural,3,submitted,bmi,0.04258155822753906,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T051403Z-a745,back_to_back,78,1,clark,Race,in_shortlist,natural,3,submitted,race,0.09073638916015625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T051549Z-94df,back_to_back,81,1,clark,Ethnicity_Self_Identify,in_shortlist,natural,3,submitted,ethnicity,0.026138246059417725,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T052011Z-40a1,back_to_back,84,1,clark,Tumor_Site,in_shortlist,natural,4,submitted,primary_site,0.009258270263671875,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T052232Z-4aa7,back_to_back,87,1,clark,Tumor_Site_Other,not_annotated,natural,4,submitted,max_tumor_bulk_site,0.00241851806640625,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T052939Z-c56d,back_to_back,90,1,clark,Tumor_Size_cm,not_in_shortlist,natural,3,submitted,NONE,1.138448715209961e-05,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T053236Z-8391,back_to_back,93,1,krug,Sample.ID,not_annotated,natural,3,submitted,submitter_id,0.016761720180511475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T053429Z-d41a,back_to_back,96,1,krug,Sample.IDs,not_annotated,natural,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T053816Z-46ba,back_to_back,99,1,krug,TMT.Plex,not_annotated,natural,4,submitted,NONE,0.01746368408203125,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T054105Z-4f7a,back_to_back,102,1,krug,TMT.Channel,not_annotated,natural,3,submitted,NONE,0.004096925258636475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T054347Z-a153,back_to_back,105,1,krug,Tumor.Stage,in_shortlist,natural,3,submitted,ajcc_clinical_stage,0.040202975273132324,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T054652Z-a117,back_to_back,108,1,krug,Ischemia.Time.in.Minutes,not_in_shortlist,natural,3,submitted,NONE,0.0114823579788208,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T054825Z-84c6,back_to_back,111,1,krug,PAM50,not_annotated,natural,3,submitted,NONE,0.013570785522460938,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T055109Z-1585,back_to_back,114,1,krug,NMF.Cluster,not_annotated,natural,3,submitted,NONE,0.09263992309570312,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T055248Z-9156,back_to_back,117,1,krug,NMF.Cluster.Membership.Score,not_annotated,natural,2,submitted,NONE,0.029373228549957275,B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T055443Z-fe47,back_to_back,120,1,krug,Age.in.Month,in_shortlist,natural,3,submitted,age_at_diagnosis,0.004199981689453125,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T050333Z-5c46,back_to_back,64,2,clark,Case_ID,not_annotated,natural,3,submitted,submitter_id,0.0269317626953125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T050629Z-ffd6,back_to_back,67,2,clark,Tumor/Normal,not_in_shortlist,natural,3,submitted,analyte_type_id,0.01128387451171875,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T050849Z-0125,back_to_back,70,2,clark,Gender,in_shortlist,natural,3,submitted,gender,0.11678123474121094,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T051034Z-c82c,back_to_back,73,2,clark,Age,in_shortlist,natural,3,submitted,age_at_diagnosis,0.05583769083023071,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T051252Z-05b7,back_to_back,76,2,clark,BMI,in_shortlist,natural,3,submitted,bmi,0.04258155822753906,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T051442Z-5cad,back_to_back,79,2,clark,Race,in_shortlist,natural,3,submitted,race,0.09073638916015625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T051722Z-889d,back_to_back,82,2,clark,Ethnicity_Self_Identify,in_shortlist,natural,3,submitted,ethnicity,0.026138246059417725,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T052101Z-5ffb,back_to_back,85,2,clark,Tumor_Site,in_shortlist,natural,4,submitted,primary_site,0.009258270263671875,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T052457Z-a1f9,back_to_back,88,2,clark,Tumor_Site_Other,not_annotated,natural,4,submitted,max_tumor_bulk_site,0.00241851806640625,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T053042Z-b7f7,back_to_back,91,2,clark,Tumor_Size_cm,not_in_shortlist,natural,3,submitted,NONE,1.138448715209961e-05,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T053317Z-251c,back_to_back,94,2,krug,Sample.ID,not_annotated,natural,3,submitted,submitter_id,0.016761720180511475,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T053547Z-d3ed,back_to_back,97,2,krug,Sample.IDs,not_annotated,natural,3,submitted,samples,0.0101470947265625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T053916Z-e1bf,back_to_back,100,2,krug,TMT.Plex,not_annotated,natural,4,submitted,NONE,0.01746368408203125,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T054203Z-1d27,back_to_back,103,2,krug,TMT.Channel,not_annotated,natural,3,submitted,NONE,0.004096925258636475,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T054452Z-c593,back_to_back,106,2,krug,Tumor.Stage,in_shortlist,natural,3,submitted,ajcc_clinical_stage,0.040202975273132324,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T054727Z-66d5,back_to_back,109,2,krug,Ischemia.Time.in.Minutes,not_in_shortlist,natural,3,submitted,NONE,0.0114823579788208,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T054923Z-aaf8,back_to_back,112,2,krug,PAM50,not_annotated,natural,3,submitted,NONE,0.013570785522460938,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T055145Z-14a9,back_to_back,115,2,krug,NMF.Cluster,not_annotated,natural,3,submitted,NONE,0.09263992309570312,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T055329Z-2d75,back_to_back,118,2,krug,NMF.Cluster.Membership.Score,not_annotated,natural,2,submitted,NONE,0.029373228549957275,B+b | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T055608Z-1f50,back_to_back,121,2,krug,Age.in.Month,in_shortlist,natural,3,submitted,age_at_diagnosis,0.004199981689453125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T050429Z-d8d0,back_to_back,65,3,clark,Case_ID,not_annotated,natural,3,submitted,submitter_id,0.0269317626953125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T050725Z-6704,back_to_back,68,3,clark,Tumor/Normal,not_in_shortlist,natural,3,submitted,analyte_type_id,0.01128387451171875,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T050916Z-df79,back_to_back,71,3,clark,Gender,in_shortlist,natural,3,submitted,gender,0.11678123474121094,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T051121Z-d520,back_to_back,74,3,clark,Age,in_shortlist,natural,3,submitted,age_at_diagnosis,0.05583769083023071,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T051326Z-1e8a,back_to_back,77,3,clark,BMI,in_shortlist,natural,3,submitted,bmi,0.04258155822753906,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T051514Z-487a,back_to_back,80,3,clark,Race,in_shortlist,natural,3,submitted,race,0.09073638916015625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T051846Z-eecf,back_to_back,83,3,clark,Ethnicity_Self_Identify,in_shortlist,natural,3,submitted,ethnicity,0.026138246059417725,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T052146Z-5ebd,back_to_back,86,3,clark,Tumor_Site,in_shortlist,natural,4,submitted,primary_site,0.009258270263671875,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T052721Z-1e89,back_to_back,89,3,clark,Tumor_Site_Other,not_annotated,natural,4,submitted,max_tumor_bulk_site,0.00241851806640625,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T053140Z-d270,back_to_back,92,3,clark,Tumor_Size_cm,not_in_shortlist,natural,3,submitted,NONE,1.138448715209961e-05,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T053353Z-3ce9,back_to_back,95,3,krug,Sample.ID,not_annotated,natural,3,submitted,submitter_id,0.016761720180511475,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T053702Z-a198,back_to_back,98,3,krug,Sample.IDs,not_annotated,natural,3,submitted,samples,0.0101470947265625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T054010Z-ca2b,back_to_back,101,3,krug,TMT.Plex,not_annotated,natural,4,submitted,NONE,0.01746368408203125,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T054255Z-b044,back_to_back,104,3,krug,TMT.Channel,not_annotated,natural,3,submitted,NONE,0.004096925258636475,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T054552Z-5172,back_to_back,107,3,krug,Tumor.Stage,in_shortlist,natural,3,submitted,ajcc_clinical_stage,0.040202975273132324,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T054756Z-e4fc,back_to_back,110,3,krug,Ischemia.Time.in.Minutes,not_in_shortlist,natural,3,submitted,NONE,0.0114823579788208,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T055016Z-1527,back_to_back,113,3,krug,PAM50,not_annotated,natural,3,submitted,NONE,0.013570785522460938,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T055216Z-7ac8,back_to_back,116,3,krug,NMF.Cluster,not_annotated,natural,3,submitted,NONE,0.09263992309570312,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T055406Z-b9f7,back_to_back,119,3,krug,NMF.Cluster.Membership.Score,not_annotated,natural,2,submitted,NONE,0.029373228549957275,B+b | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T055727Z-b0d8,back_to_back,122,3,krug,Age.in.Month,in_shortlist,natural,3,submitted,age_at_diagnosis,0.004199981689453125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T055848Z-b9f0,interleaved,124,1,clark,Case_ID,not_annotated,natural,3,submitted,submitter_id,0.0269317626953125,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T055948Z-f748,interleaved,125,1,clark,Tumor/Normal,not_in_shortlist,natural,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060046Z-e5aa,interleaved,126,1,clark,Gender,in_shortlist,natural,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060118Z-b2c5,interleaved,127,1,clark,Age,in_shortlist,natural,3,submitted,age_at_diagnosis,0.05583769083023071,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060212Z-1d5f,interleaved,128,1,clark,BMI,in_shortlist,natural,3,submitted,bmi,0.04258155822753906,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060250Z-cab9,interleaved,129,1,clark,Race,in_shortlist,natural,3,submitted,race,0.09073638916015625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060324Z-b673,interleaved,130,1,clark,Ethnicity_Self_Identify,in_shortlist,natural,3,submitted,ethnicity,0.026138246059417725,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060446Z-32f4,interleaved,131,1,clark,Tumor_Site,in_shortlist,natural,4,submitted,primary_site,0.009258270263671875,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060533Z-246a,interleaved,132,1,clark,Tumor_Site_Other,not_annotated,natural,4,submitted,max_tumor_bulk_site,0.00241851806640625,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T060747Z-fc3b,interleaved,133,1,clark,Tumor_Size_cm,not_in_shortlist,natural,3,submitted,NONE,1.138448715209961e-05,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T060846Z-9927,interleaved,134,1,krug,Sample.ID,not_annotated,natural,3,submitted,submitter_id,0.016761720180511475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T060926Z-09e5,interleaved,135,1,krug,Sample.IDs,not_annotated,natural,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061041Z-bfd2,interleaved,136,1,krug,TMT.Plex,not_annotated,natural,4,submitted,NONE,0.01746368408203125,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061138Z-26bc,interleaved,137,1,krug,TMT.Channel,not_annotated,natural,3,submitted,NONE,0.004096925258636475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061234Z-fd63,interleaved,138,1,krug,Tumor.Stage,in_shortlist,natural,3,submitted,ajcc_clinical_stage,0.040202975273132324,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061339Z-5fd7,interleaved,139,1,krug,Ischemia.Time.in.Minutes,not_in_shortlist,natural,3,submitted,NONE,0.0114823579788208,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061413Z-271b,interleaved,140,1,krug,PAM50,not_annotated,natural,3,submitted,NONE,0.013570785522460938,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061511Z-eff2,interleaved,141,1,krug,NMF.Cluster,not_annotated,natural,3,submitted,NONE,0.09263992309570312,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061547Z-ba86,interleaved,142,1,krug,NMF.Cluster.Membership.Score,not_annotated,natural,2,submitted,NONE,0.029373228549957275,B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T061629Z-8e11,interleaved,143,1,krug,Age.in.Month,in_shortlist,natural,3,submitted,age_at_diagnosis,0.004199981689453125,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T061753Z-6577,interleaved,144,2,clark,Case_ID,not_annotated,natural,3,submitted,submitter_id,0.0269317626953125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T061846Z-38e4,interleaved,145,2,clark,Tumor/Normal,not_in_shortlist,natural,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T061945Z-b691,interleaved,146,2,clark,Gender,in_shortlist,natural,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062018Z-8b6b,interleaved,147,2,clark,Age,in_shortlist,natural,3,submitted,age_at_diagnosis,0.05583769083023071,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062113Z-0399,interleaved,148,2,clark,BMI,in_shortlist,natural,3,submitted,bmi,0.04258155822753906,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062150Z-1a47,interleaved,149,2,clark,Race,in_shortlist,natural,3,submitted,race,0.09073638916015625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062225Z-cbe0,interleaved,150,2,clark,Ethnicity_Self_Identify,in_shortlist,natural,3,submitted,ethnicity,0.026138246059417725,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062348Z-1d55,interleaved,151,2,clark,Tumor_Site,in_shortlist,natural,4,submitted,primary_site,0.009258270263671875,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062435Z-6979,interleaved,152,2,clark,Tumor_Site_Other,not_annotated,natural,4,submitted,max_tumor_bulk_site,0.00241851806640625,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T062650Z-707f,interleaved,153,2,clark,Tumor_Size_cm,not_in_shortlist,natural,3,submitted,NONE,1.138448715209961e-05,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T062750Z-cc90,interleaved,154,2,krug,Sample.ID,not_annotated,natural,3,submitted,submitter_id,0.016761720180511475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T062830Z-e525,interleaved,155,2,krug,Sample.IDs,not_annotated,natural,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T062945Z-d73b,interleaved,156,2,krug,TMT.Plex,not_annotated,natural,4,submitted,NONE,0.01746368408203125,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063041Z-e519,interleaved,157,2,krug,TMT.Channel,not_annotated,natural,3,submitted,NONE,0.004096925258636475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063138Z-9006,interleaved,158,2,krug,Tumor.Stage,in_shortlist,natural,3,submitted,ajcc_clinical_stage,0.040202975273132324,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063243Z-0253,interleaved,159,2,krug,Ischemia.Time.in.Minutes,not_in_shortlist,natural,3,submitted,NONE,0.0114823579788208,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063317Z-66de,interleaved,160,2,krug,PAM50,not_annotated,natural,3,submitted,NONE,0.013570785522460938,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063415Z-24f8,interleaved,161,2,krug,NMF.Cluster,not_annotated,natural,3,submitted,NONE,0.09263992309570312,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063452Z-1281,interleaved,162,2,krug,NMF.Cluster.Membership.Score,not_annotated,natural,2,submitted,NONE,0.029373228549957275,B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T063533Z-7dff,interleaved,163,2,krug,Age.in.Month,in_shortlist,natural,3,submitted,age_at_diagnosis,0.004199981689453125,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T063658Z-c8cb,interleaved,164,3,clark,Case_ID,not_annotated,natural,3,submitted,submitter_id,0.0269317626953125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T063750Z-afa3,interleaved,165,3,clark,Tumor/Normal,not_in_shortlist,natural,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T063849Z-013b,interleaved,166,3,clark,Gender,in_shortlist,natural,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T063922Z-b7ea,interleaved,167,3,clark,Age,in_shortlist,natural,3,submitted,age_at_diagnosis,0.05583769083023071,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T064017Z-dc17,interleaved,168,3,clark,BMI,in_shortlist,natural,3,submitted,bmi,0.04258155822753906,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T064054Z-e819,interleaved,169,3,clark,Race,in_shortlist,natural,3,submitted,race,0.09073638916015625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T064129Z-d338,interleaved,170,3,clark,Ethnicity_Self_Identify,in_shortlist,natural,3,submitted,ethnicity,0.026138246059417725,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T064251Z-d8b3,interleaved,171,3,clark,Tumor_Site,in_shortlist,natural,4,submitted,primary_site,0.009258270263671875,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T064339Z-4422,interleaved,172,3,clark,Tumor_Site_Other,not_annotated,natural,4,submitted,max_tumor_bulk_site,0.00241851806640625,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T064553Z-acb6,interleaved,173,3,clark,Tumor_Size_cm,not_in_shortlist,natural,3,submitted,NONE,1.138448715209961e-05,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T064648Z-04fe,interleaved,174,3,krug,Sample.ID,not_annotated,natural,3,submitted,submitter_id,0.016761720180511475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T064728Z-55da,interleaved,175,3,krug,Sample.IDs,not_annotated,natural,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T064843Z-3d0d,interleaved,176,3,krug,TMT.Plex,not_annotated,natural,4,submitted,NONE,0.01746368408203125,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T064935Z-5c5d,interleaved,177,3,krug,TMT.Channel,not_annotated,natural,3,submitted,NONE,0.004096925258636475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T065031Z-909d,interleaved,178,3,krug,Tumor.Stage,in_shortlist,natural,3,submitted,ajcc_clinical_stage,0.040202975273132324,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T065136Z-0409,interleaved,179,3,krug,Ischemia.Time.in.Minutes,not_in_shortlist,natural,3,submitted,NONE,0.0114823579788208,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T065210Z-d62c,interleaved,180,3,krug,PAM50,not_annotated,natural,3,submitted,NONE,0.013570785522460938,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T065308Z-eed5,interleaved,181,3,krug,NMF.Cluster,not_annotated,natural,3,submitted,NONE,0.09263992309570312,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T065344Z-8858,interleaved,182,3,krug,NMF.Cluster.Membership.Score,not_annotated,natural,2,submitted,NONE,0.029373228549957275,B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T065426Z-1986,interleaved,183,3,krug,Age.in.Month,in_shortlist,natural,3,submitted,age_at_diagnosis,0.004199981689453125,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T035913Z-f33f,unload_each,2,1,clark,Case_ID,not_annotated,cold_start,3,submitted,submitter_id,0.032928407192230225,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T040231Z-fa66,unload_each,5,1,clark,Tumor/Normal,not_in_shortlist,cold_start,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T040547Z-d9b8,unload_each,8,1,clark,Gender,in_shortlist,cold_start,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T040739Z-383b,unload_each,11,1,clark,Age,in_shortlist,cold_start,3,submitted,age_at_diagnosis,0.05979728698730469,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T041046Z-3cb4,unload_each,14,1,clark,BMI,in_shortlist,cold_start,3,submitted,bmi,0.03260040283203125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T041256Z-aca0,unload_each,17,1,clark,Race,in_shortlist,cold_start,3,submitted,race,0.08303463459014893,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T041454Z-990f,unload_each,20,1,clark,Ethnicity_Self_Identify,in_shortlist,cold_start,3,submitted,ethnicity,0.01912689208984375,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T041935Z-87f9,unload_each,23,1,clark,Tumor_Site,in_shortlist,cold_start,4,submitted,primary_site,0.02496337890625,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T042220Z-dbc0,unload_each,26,1,clark,Tumor_Site_Other,not_annotated,cold_start,4,submitted,max_tumor_bulk_site,0.00241851806640625,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-clark-20261112T043002Z-64a4,unload_each,29,1,clark,Tumor_Size_cm,not_in_shortlist,cold_start,3,submitted,NONE,0.0004367232322692871,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T043317Z-3118,unload_each,32,1,krug,Sample.ID,not_annotated,cold_start,3,submitted,submitter_id,0.0014839768409729004,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T043533Z-7fc5,unload_each,35,1,krug,Sample.IDs,not_annotated,cold_start,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T043910Z-55c2,unload_each,38,1,krug,TMT.Plex,not_annotated,cold_start,4,submitted,NONE,0.01746368408203125,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T044210Z-fac8,unload_each,41,1,krug,TMT.Channel,not_annotated,cold_start,3,submitted,NONE,0.010282516479492188,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T044518Z-e81c,unload_each,44,1,krug,Tumor.Stage,in_shortlist,cold_start,3,submitted,ajcc_clinical_stage,0.008884429931640625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T044846Z-a0f6,unload_each,47,1,krug,Ischemia.Time.in.Minutes,not_in_shortlist,cold_start,3,submitted,NONE,0.013113021850585938,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T045037Z-b6fd,unload_each,50,1,krug,PAM50,not_annotated,cold_start,3,submitted,NONE,0.030094146728515625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T045345Z-3581,unload_each,53,1,krug,NMF.Cluster,not_annotated,cold_start,3,submitted,NONE,0.0956648588180542,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T045544Z-49cd,unload_each,56,1,krug,NMF.Cluster.Membership.Score,not_annotated,cold_start,2,submitted,NONE,0.03400605916976929,B+b | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r1-krug-20261112T045801Z-ee3b,unload_each,59,1,krug,Age.in.Month,in_shortlist,cold_start,3,submitted,age_at_diagnosis,0.0033456087112426758,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T040017Z-3a85,unload_each,3,2,clark,Case_ID,not_annotated,cold_start,3,submitted,submitter_id,0.032928407192230225,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T040340Z-3f0e,unload_each,6,2,clark,Tumor/Normal,not_in_shortlist,cold_start,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T040625Z-8513,unload_each,9,2,clark,Gender,in_shortlist,cold_start,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T040841Z-9d86,unload_each,12,2,clark,Age,in_shortlist,cold_start,3,submitted,age_at_diagnosis,0.05583769083023071,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T041130Z-9115,unload_each,15,2,clark,BMI,in_shortlist,cold_start,3,submitted,bmi,0.04258155822753906,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T041335Z-3e1f,unload_each,18,2,clark,Race,in_shortlist,cold_start,3,submitted,race,0.08303463459014893,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T041625Z-5518,unload_each,21,2,clark,Ethnicity_Self_Identify,in_shortlist,cold_start,3,submitted,ethnicity,0.01912689208984375,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T042032Z-a520,unload_each,24,2,clark,Tumor_Site,in_shortlist,cold_start,4,submitted,primary_site,0.009258270263671875,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T042452Z-64dc,unload_each,27,2,clark,Tumor_Site_Other,not_annotated,cold_start,4,submitted,max_tumor_bulk_site,0.00241851806640625,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-clark-20261112T043107Z-daa6,unload_each,30,2,clark,Tumor_Size_cm,not_in_shortlist,cold_start,3,submitted,NONE,0.0004367232322692871,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T043407Z-5895,unload_each,33,2,krug,Sample.ID,not_annotated,cold_start,3,submitted,submitter_id,0.0014839768409729004,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T043644Z-384b,unload_each,36,2,krug,Sample.IDs,not_annotated,cold_start,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T044009Z-75c4,unload_each,39,2,krug,TMT.Plex,not_annotated,cold_start,4,submitted,NONE,0.02068328857421875,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T044312Z-e092,unload_each,42,2,krug,TMT.Channel,not_annotated,cold_start,3,submitted,NONE,0.010282516479492188,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T044631Z-d900,unload_each,45,2,krug,Tumor.Stage,in_shortlist,cold_start,3,submitted,ajcc_clinical_stage,0.008884429931640625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T044922Z-1c7d,unload_each,48,2,krug,Ischemia.Time.in.Minutes,not_in_shortlist,cold_start,3,submitted,NONE,0.013113021850585938,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T045140Z-5c25,unload_each,51,2,krug,PAM50,not_annotated,cold_start,3,submitted,NONE,0.030094146728515625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T045424Z-5825,unload_each,54,2,krug,NMF.Cluster,not_annotated,cold_start,3,submitted,NONE,0.0956648588180542,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T045632Z-c0a0,unload_each,57,2,krug,NMF.Cluster.Membership.Score,not_annotated,cold_start,2,submitted,NONE,0.03400605916976929,B+b | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r2-krug-20261112T045928Z-bbed,unload_each,60,2,krug,Age.in.Month,in_shortlist,cold_start,3,submitted,age_at_diagnosis,0.0033456087112426758,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T040126Z-116e,unload_each,4,3,clark,Case_ID,not_annotated,cold_start,3,submitted,submitter_id,0.032928407192230225,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T040443Z-1c50,unload_each,7,3,clark,Tumor/Normal,not_in_shortlist,cold_start,3,submitted,analyte_type_id,0.01128387451171875,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T040701Z-3043,unload_each,10,3,clark,Gender,in_shortlist,cold_start,3,submitted,gender,0.11678123474121094,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T040944Z-6fb5,unload_each,13,3,clark,Age,in_shortlist,cold_start,3,submitted,age_at_diagnosis,0.05979728698730469,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T041212Z-a954,unload_each,16,3,clark,BMI,in_shortlist,cold_start,3,submitted,bmi,0.03260040283203125,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T041417Z-a40c,unload_each,19,3,clark,Race,in_shortlist,cold_start,3,submitted,race,0.08303463459014893,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T041757Z-beeb,unload_each,22,3,clark,Ethnicity_Self_Identify,in_shortlist,cold_start,3,submitted,ethnicity,0.01912689208984375,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T042127Z-5b4a,unload_each,25,3,clark,Tumor_Site,in_shortlist,cold_start,4,submitted,primary_site,0.009258270263671875,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T042728Z-7d76,unload_each,28,3,clark,Tumor_Site_Other,not_annotated,cold_start,4,submitted,max_tumor_bulk_site,0.00872039794921875,B+b | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-clark-20261112T043212Z-1d87,unload_each,31,3,clark,Tumor_Size_cm,not_in_shortlist,cold_start,3,submitted,NONE,0.0004367232322692871,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T043453Z-50e5,unload_each,34,3,krug,Sample.ID,not_annotated,cold_start,3,submitted,submitter_id,0.016761720180511475,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T043756Z-f440,unload_each,37,3,krug,Sample.IDs,not_annotated,cold_start,3,submitted,samples,0.0101470947265625,B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T044109Z-0ccc,unload_each,40,3,krug,TMT.Plex,not_annotated,cold_start,4,submitted,NONE,0.01746368408203125,B | B | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T044416Z-8af8,unload_each,43,3,krug,TMT.Channel,not_annotated,cold_start,3,submitted,NONE,0.010282516479492188,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T044738Z-9b4e,unload_each,46,3,krug,Tumor.Stage,in_shortlist,cold_start,3,submitted,ajcc_clinical_stage,0.008884429931640625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T044959Z-f6db,unload_each,49,3,krug,Ischemia.Time.in.Minutes,not_in_shortlist,cold_start,3,submitted,NONE,0.013113021850585938,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T045243Z-b023,unload_each,52,3,krug,PAM50,not_annotated,cold_start,3,submitted,NONE,0.030094146728515625,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T045504Z-761d,unload_each,55,3,krug,NMF.Cluster,not_annotated,cold_start,3,submitted,NONE,0.0956648588180542,B+b | B | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T045717Z-01cb,unload_each,58,3,krug,NMF.Cluster.Membership.Score,not_annotated,cold_start,2,submitted,NONE,0.03400605916976929,B+b | B
+e1_tool_loop-e1_tool_loop_qwen3.8_27b_bdikit_T0_s1_r3-krug-20261112T050101Z-4420,unload_each,61,3,krug,Age.in.Month,in_shortlist,cold_start,3,submitted,age_at_diagnosis,0.0033456087112426758,B+b | B | B

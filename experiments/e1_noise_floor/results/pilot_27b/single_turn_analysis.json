@@ -1,0 +1,898 @@
+{
+ "A_margin_survey": {
+  "n_decisions": 32,
+  "n_unique_inputs": 32,
+  "n_no_value": 1,
+  "path_classes": {
+   "full:cold_full": 1,
+   "full:partial": 15,
+   "shortlist:full": 16
+  },
+  "margin_span_equals_evidence": false,
+  "by_mode": {
+   "full": {
+    "n_unique": 16,
+    "margin_prefix_quantiles": {
+     "q0": 0.0008069276809692383,
+     "q1": 0.0015252351760864258,
+     "q5": 0.004398465156555176,
+     "q10": 0.006074213981628418,
+     "q25": 0.011869460344314575,
+     "q50": 0.021381497383117676
+    },
+    "margin_span_quantiles": {
+     "q0": 7.924081758945249,
+     "q1": 7.972126092364197,
+     "q5": 8.164303426039988,
+     "q10": 8.562565957626793,
+     "q25": 9.59182720883473,
+     "q50": 10.941924571539857
+    },
+    "n_prefix_margin_below": {
+     "0.05": 11,
+     "0.1": 13,
+     "0.15": 14,
+     "0.25": 15,
+     "0.5": 15
+    },
+    "n_prefix_lower_than_span": 15,
+    "apichat_default_deterministic_share": 0.0,
+    "apichat_expected_changes_between_two_runs": [
+     0.0,
+     15.0
+    ],
+    "v1_default_deterministic_share": 0.0,
+    "v1_expected_changes_between_two_runs": [
+     0.0,
+     15.0
+    ],
+    "accuracy_annotated": 0.7857142857142857
+   },
+   "shortlist": {
+    "n_unique": 16,
+    "margin_prefix_quantiles": {
+     "q0": 0.00131988525390625,
+     "q1": 0.001379680633544922,
+     "q5": 0.0016188621520996094,
+     "q10": 0.003662109375,
+     "q25": 0.0076485127210617065,
+     "q50": 0.009326934814453125
+    },
+    "margin_span_quantiles": {
+     "q0": 7.604511299286969,
+     "q1": 7.907980014952773,
+     "q5": 9.121854877615988,
+     "q10": 9.979519781198178,
+     "q25": 12.700240045749183,
+     "q50": 13.080253064624912
+    },
+    "n_prefix_margin_below": {
+     "0.05": 14,
+     "0.1": 15,
+     "0.15": 16,
+     "0.25": 16,
+     "0.5": 16
+    },
+    "n_prefix_lower_than_span": 16,
+    "apichat_default_deterministic_share": 0.0,
+    "apichat_expected_changes_between_two_runs": [
+     0.0,
+     16.0
+    ],
+    "v1_default_deterministic_share": 0.0,
+    "v1_expected_changes_between_two_runs": [
+     0.0,
+     16.0
+    ],
+    "accuracy_annotated": 0.7857142857142857
+   }
+  },
+  "n_all_margin_below": {
+   "0.05": 25,
+   "0.1": 28,
+   "0.15": 30,
+   "0.25": 31,
+   "0.5": 31
+  },
+  "natural_off_batched_lineage": {
+   "single_token_calls": [
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:2",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Case_ID",
+     "value": "submitter_id",
+     "margin_prefix": 0.009323179721832275
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:3",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Tumor/Normal",
+     "value": "NONE",
+     "margin_prefix": 0.00786978006362915
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:4",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Gender",
+     "value": "gender",
+     "margin_prefix": 0.01663970947265625
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:5",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Age",
+     "value": "age_at_diagnosis",
+     "margin_prefix": 0.009330689907073975
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:6",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "BMI",
+     "value": "bmi",
+     "margin_prefix": 0.14055639505386353
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:7",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Race",
+     "value": "race",
+     "margin_prefix": 0.027389466762542725
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:8",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Ethnicity_Self_Identify",
+     "value": "ethnicity",
+     "margin_prefix": 0.010364532470703125
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:9",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Tumor_Site",
+     "value": "primary_site",
+     "margin_prefix": 0.00131988525390625
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:10",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Tumor_Site_Other",
+     "value": "NONE",
+     "margin_prefix": 0.0017185211181640625
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:11",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Tumor_Size_cm",
+     "value": "NONE",
+     "margin_prefix": 0.037776947021484375
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:12",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Tumor_Focality",
+     "value": "tumor_focality",
+     "margin_prefix": 0.0056056976318359375
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:13",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Histologic_Type",
+     "value": "NONE",
+     "margin_prefix": 0.00790780782699585
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:14",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Grade",
+     "value": "tumor_grade",
+     "margin_prefix": 0.07827001810073853
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:15",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Tumor_Stage_Pathological",
+     "value": "ajcc_pathologic_stage",
+     "margin_prefix": 0.012767791748046875
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:16",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Path_Stage_Primary_Tumor_pT",
+     "value": "ajcc_pathologic_t",
+     "margin_prefix": 0.007944107055664062
+    },
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b",
+     "span_id": "driver:17",
+     "study": "clark",
+     "mode": "shortlist",
+     "column": "Path_Stage_Reg_Lymph_Nodes_pN",
+     "value": "ajcc_pathologic_n",
+     "margin_prefix": 0.006984710693359375
+    }
+   ],
+   "ram_restores": []
+  },
+  "lowest_margins": [
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Path_Stage_Primary_Tumor_pT",
+    "value": "ajcc_pathologic_t",
+    "margin_span": 10.9419,
+    "margin_prefix": 0.0008,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Tumor_Site",
+    "value": "primary_site",
+    "margin_span": 9.6276,
+    "margin_prefix": 0.0013,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Tumor_Site_Other",
+    "value": "NONE",
+    "margin_span": 13.3651,
+    "margin_prefix": 0.0017,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Tumor_Focality",
+    "value": "tumor_focality",
+    "margin_span": 12.4815,
+    "margin_prefix": 0.0056,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Histologic_Type",
+    "value": "morphology",
+    "margin_span": 11.5396,
+    "margin_prefix": 0.0059,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Tumor_Stage_Pathological",
+    "value": "ajcc_pathologic_stage",
+    "margin_span": 10.5872,
+    "margin_prefix": 0.0063,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Path_Stage_Reg_Lymph_Nodes_pN",
+    "value": "ajcc_pathologic_n",
+    "margin_span": 13.6802,
+    "margin_prefix": 0.007,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Tumor/Normal",
+    "value": "NONE",
+    "margin_span": 13.5007,
+    "margin_prefix": 0.0079,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Histologic_Type",
+    "value": "NONE",
+    "margin_span": 14.4997,
+    "margin_prefix": 0.0079,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Path_Stage_Primary_Tumor_pT",
+    "value": "ajcc_pathologic_t",
+    "margin_span": 12.7856,
+    "margin_prefix": 0.0079,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Case_ID",
+    "value": "submitter_id",
+    "margin_span": 7.6045,
+    "margin_prefix": 0.0093,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Age",
+    "value": "age_at_diagnosis",
+    "margin_span": 13.0977,
+    "margin_prefix": 0.0093,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Ethnicity_Self_Identify",
+    "value": "ethnicity",
+    "margin_span": 10.3314,
+    "margin_prefix": 0.0104,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Case_ID",
+    "value": "submitter_id",
+    "margin_span": 11.2276,
+    "margin_prefix": 0.0111,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Tumor_Site",
+    "value": "tumor_focality",
+    "margin_span": 9.0055,
+    "margin_prefix": 0.0127,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Tumor_Stage_Pathological",
+    "value": "ajcc_pathologic_stage",
+    "margin_span": 12.7732,
+    "margin_prefix": 0.0128,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Path_Stage_Reg_Lymph_Nodes_pN",
+    "value": "ajcc_pathologic_n",
+    "margin_span": 9.5136,
+    "margin_prefix": 0.0128,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Gender",
+    "value": "gender",
+    "margin_span": 13.0628,
+    "margin_prefix": 0.0166,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Grade",
+    "value": "tumor_grade",
+    "margin_span": 8.2673,
+    "margin_prefix": 0.0209,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Tumor_Size_cm",
+    "value": "greatest_tumor_dimension",
+    "margin_span": 7.9241,
+    "margin_prefix": 0.0214,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Race",
+    "value": "race",
+    "margin_span": 13.9105,
+    "margin_prefix": 0.0274,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Ethnicity_Self_Identify",
+    "value": "ethnicity",
+    "margin_span": 9.6701,
+    "margin_prefix": 0.0329,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Age",
+    "value": "age_at_diagnosis",
+    "margin_span": 12.0301,
+    "margin_prefix": 0.0334,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Tumor_Size_cm",
+    "value": "NONE",
+    "margin_span": 14.0508,
+    "margin_prefix": 0.0378,
+    "p_greedy_apichat": 0.0,
+    "correct": false
+   },
+   {
+    "study": "clark",
+    "mode": "full",
+    "column": "Tumor_Focality",
+    "value": "tumor_focality",
+    "margin_span": 10.0899,
+    "margin_prefix": 0.0427,
+    "p_greedy_apichat": 0.0,
+    "correct": true
+   }
+  ],
+  "accuracy_by_study": [
+   {
+    "mode": "full",
+    "study": "clark",
+    "sum": 11,
+    "count": 14
+   },
+   {
+    "mode": "shortlist",
+    "study": "clark",
+    "sum": 11,
+    "count": 14
+   }
+  ]
+ },
+ "B_two_lineages": {
+  "n_replay_runs": 2,
+  "n_replayed": 32,
+  "paths": [
+   {
+    "path_source": "cold_full",
+    "path_replay": "partial",
+    "n": 1
+   },
+   {
+    "path_source": "full",
+    "path_replay": "partial",
+    "n": 16
+   },
+   {
+    "path_source": "partial",
+    "path_replay": "partial",
+    "n": 15
+   }
+  ],
+  "text_changed": 0,
+  "decision_flipped": 0,
+  "flips": [],
+  "d_margin_quantiles_abs": {
+   "q50": 0.0,
+   "q90": 0.0,
+   "q99": 0.0,
+   "q100": 0.0
+  },
+  "d_margin_sign": {
+   "negative": 0,
+   "positive": 0,
+   "zero": 31
+  },
+  "gap_shift": {
+   "cold_full->partial": {
+    "n_positions": 428,
+    "n_calls": 1,
+    "share_zero": 1.0,
+    "abs_quantiles": {
+     "q50": 0.0,
+     "q90": 0.0,
+     "q99": 0.0,
+     "q99.9": 0.0,
+     "q100": 0.0
+    },
+    "bootstrap_ci95": {
+     "median": [
+      0.0,
+      0.0
+     ],
+     "p90": [
+      0.0,
+      0.0
+     ],
+     "p99": [
+      0.0,
+      0.0
+     ],
+     "max": [
+      0.0,
+      0.0
+     ]
+    },
+    "decision_prefix_positions": {
+     "q50": 0.0,
+     "q90": 0.0,
+     "q99": 0.0,
+     "q100": 0.0
+    },
+    "nonzero_share_negative": null,
+    "by_gap_bin": [
+     {
+      "gap_from": 0,
+      "gap_to": 0.5,
+      "n": 27,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 0.5,
+      "gap_to": 1,
+      "n": 27,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 1,
+      "gap_to": 3,
+      "n": 86,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 3,
+      "gap_to": 6,
+      "n": 55,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 6,
+      "gap_to": 1000000000.0,
+      "n": 232,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     }
+    ]
+   },
+   "full->partial": {
+    "n_positions": 8604,
+    "n_calls": 16,
+    "share_zero": 1.0,
+    "abs_quantiles": {
+     "q50": 0.0,
+     "q90": 0.0,
+     "q99": 0.0,
+     "q99.9": 0.0,
+     "q100": 0.0
+    },
+    "bootstrap_ci95": {
+     "median": [
+      0.0,
+      0.0
+     ],
+     "p90": [
+      0.0,
+      0.0
+     ],
+     "p99": [
+      0.0,
+      0.0
+     ],
+     "max": [
+      0.0,
+      0.0
+     ]
+    },
+    "decision_prefix_positions": {
+     "q50": 0.0,
+     "q90": 0.0,
+     "q99": 0.0,
+     "q100": 0.0
+    },
+    "nonzero_share_negative": null,
+    "by_gap_bin": [
+     {
+      "gap_from": 0,
+      "gap_to": 0.5,
+      "n": 478,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 0.5,
+      "gap_to": 1,
+      "n": 442,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 1,
+      "gap_to": 3,
+      "n": 1360,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 3,
+      "gap_to": 6,
+      "n": 1072,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 6,
+      "gap_to": 1000000000.0,
+      "n": 5236,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     }
+    ]
+   },
+   "partial->partial": {
+    "n_positions": 6259,
+    "n_calls": 15,
+    "share_zero": 1.0,
+    "abs_quantiles": {
+     "q50": 0.0,
+     "q90": 0.0,
+     "q99": 0.0,
+     "q99.9": 0.0,
+     "q100": 0.0
+    },
+    "bootstrap_ci95": {
+     "median": [
+      0.0,
+      0.0
+     ],
+     "p90": [
+      0.0,
+      0.0
+     ],
+     "p99": [
+      0.0,
+      0.0
+     ],
+     "max": [
+      0.0,
+      0.0
+     ]
+    },
+    "decision_prefix_positions": {
+     "q50": 0.0,
+     "q90": 0.0,
+     "q99": 0.0,
+     "q100": 0.0
+    },
+    "nonzero_share_negative": null,
+    "by_gap_bin": [
+     {
+      "gap_from": 0,
+      "gap_to": 0.5,
+      "n": 335,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 0.5,
+      "gap_to": 1,
+      "n": 301,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 1,
+      "gap_to": 3,
+      "n": 1033,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 3,
+      "gap_to": 6,
+      "n": 1107,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     },
+     {
+      "gap_from": 6,
+      "gap_to": 1000000000.0,
+      "n": 3469,
+      "q50": 0.0,
+      "q90": 0.0,
+      "q100": 0.0,
+      "nonzero_share_negative": null
+     }
+    ]
+   }
+  },
+  "presend_batched_bitwise": {
+   "n": 32,
+   "bitwise": 32,
+   "paths": {
+    "partial": 32
+   },
+   "batched": {
+    "n": 32,
+    "bitwise": 32,
+    "split_point_moved": 17,
+    "split_point_moved_bitwise": 17,
+    "cached_source_range": [
+     0,
+     2795
+    ],
+    "cached_pre_range": [
+     425,
+     2795
+    ]
+   },
+   "single_token": {
+    "n": 0,
+    "ram_restore": 0,
+    "bitwise_vs_source": 0,
+    "bitwise_vs_measured_send": 0
+   }
+  },
+  "noise_model_pairs": [
+   "cold_full->partial",
+   "full->partial",
+   "partial->partial"
+  ],
+  "noise_model_check": {
+   "replayed_observed_flips": 0,
+   "replayed_expected_flips_loo": 0.0,
+   "by_margin_bin": [
+    {
+     "margin_from": 0.0,
+     "margin_to": 0.01,
+     "n": 12,
+     "observed": 0,
+     "expected": 0.0
+    },
+    {
+     "margin_from": 0.01,
+     "margin_to": 0.03,
+     "n": 9,
+     "observed": 0,
+     "expected": 0.0
+    },
+    {
+     "margin_from": 0.03,
+     "margin_to": 0.1,
+     "n": 7,
+     "observed": 0,
+     "expected": 0.0
+    },
+    {
+     "margin_from": 0.1,
+     "margin_to": 0.5,
+     "n": 3,
+     "observed": 0,
+     "expected": 0.0
+    }
+   ],
+   "all_decisions_expected_flips": 0.0,
+   "decisions_margin_below_0.5": 31,
+   "decisions_margin_below_0.5_replayed": 31,
+   "max_abs_shift": 0.0,
+   "decisions_margin_above_max_shift": 31
+  }
+ },
+ "C_transport": {},
+ "E_back_to_back": [],
+ "D_audits": {
+  "n_runs": 4,
+  "foreign_tasks": 0,
+  "runner_starts": 1,
+  "other_requests": 60,
+  "unmatched_calls": 0,
+  "truncated": 0,
+  "ram_restores": 0,
+  "sampler_mismatches": 64,
+  "cache_disagreements": 0,
+  "unavailable": 0
+ },
+ "D_validate": {
+  "n_runs": 4,
+  "runs_with_problems": {
+   "1a/qwen_local-clark_match_full_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T005811Z-0e5c": [
+    "16 call(s) ran with sampler settings other than requested (top_k, top_p)"
+   ],
+   "1a/qwen_local-clark_match_shortlist_qwen3.8_27b_bdikit_T0.0_s1_r1-clark-20261112T011154Z-fa7b": [
+    "16 call(s) ran with sampler settings other than requested (top_k, top_p)"
+   ]
+  }
+ }
+}

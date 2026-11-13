@@ -9,7 +9,12 @@ Engine check before and after; every run folder is validated at the end. The bac
 the stage1e plan of run_plan.py.
 
 Usage: python -I stage1.py <out_root>      (outside the repo: raw logs carry Qwen's Chinese candidate tokens)
+       [--model M] [--studies clark,krug] [--modes full,shortlist] [--think] [--skip-1c]
+
+The defaults are the Stage 1 run of 2026-11-03 (qwen2.5:14b, ten studies, both modes, no thinking). The qwen3.8
+27b pilot passes --model qwen3.8-27b-bdikit --studies clark --think --skip-1c.
 """
+import argparse
 import json
 import random
 import subprocess
@@ -17,11 +22,20 @@ import sys
 import time
 from pathlib import Path
 
-REPO, OUT = Path(__file__).resolve().parents[2], Path(sys.argv[1]).resolve()
-PY = sys.executable
-CLARK = str(REPO / "experiments/qwen_local/clark_match.py")
 MODEL = "qwen2.5:14b"
 STUDIES = ["cao", "clark", "dou", "gillette", "huang", "krug", "mcdermott", "satpathy", "vasaikar", "wang"]
+_ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+_ap.add_argument("out_root")
+_ap.add_argument("--model", default=MODEL)
+_ap.add_argument("--studies", default=",".join(STUDIES))
+_ap.add_argument("--modes", default="full,shortlist", help="1a modes, in run order (full first keeps its prefix cached)")
+_ap.add_argument("--think", action="store_true", help="let a thinking model think (clark_match --think)")
+_ap.add_argument("--skip-1c", action="store_true", help="skip the transport comparison")
+ARGS = _ap.parse_args()
+REPO, OUT = Path(__file__).resolve().parents[2], Path(ARGS.out_root).resolve()
+PY = sys.executable
+CLARK = str(REPO / "experiments/qwen_local/clark_match.py")
+MODEL, STUDIES, THINK = ARGS.model, ARGS.studies.split(","), ["--think"] if ARGS.think else []
 MARGIN_MAX = 0.5
 SAMPLE_REST = 0.05
 LOG = OUT / "driver_log.jsonl"
@@ -74,10 +88,11 @@ if __name__ == "__main__":
         sys.exit("engine drift before Stage 1; not running")
 
     # 1a: all full-mode runs first (shared prefix stays cached), then shortlist
-    for mode in ("full", "shortlist"):
+    for mode in ARGS.modes.split(","):
         for s in STUDIES:
             step(f"1a:{mode}:{s}", [PY, "-I", CLARK, "--model", MODEL, "--mode", mode, "--study", s, "--run", "1",
-                                    "--temperature", "0", "--seed", "1", "--out-dir", str(OUT / "1a")])
+                                    "--temperature", "0", "--seed", "1", *THINK, "--out-dir", str(OUT / "1a"),
+                                    "--raw-dir", str(OUT / "1a")])
 
     # 1b: resend replays of fragile calls
     selection = {}
@@ -92,10 +107,10 @@ if __name__ == "__main__":
     (OUT / "1b_selection.json").write_text(json.dumps(selection, indent=1))
 
     # 1c: cold-vs-cold through both transports
-    for run, transport in (("2", "ollama"), ("3", "openai_v1")):
+    for run, transport in () if ARGS.skip_1c else (("2", "ollama"), ("3", "openai_v1")):
         step(f"1c:{transport}", [PY, "-I", CLARK, "--model", MODEL, "--mode", "shortlist", "--study", "clark",
-                                 "--run", run, "--temperature", "0", "--seed", "1", "--transport", transport,
-                                 "--engine-protocol", "cold", "--out-dir", str(OUT / "1c")])
+                                 "--run", run, "--temperature", "0", "--seed", "1", *THINK, "--transport", transport,
+                                 "--engine-protocol", "cold", "--out-dir", str(OUT / "1c"), "--raw-dir", str(OUT / "1c")])
 
     step("engine_check_after", [PY, "-m", "hbench", "engine", "check", "--models", MODEL])
     problems = {}

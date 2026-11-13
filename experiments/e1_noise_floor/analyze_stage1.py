@@ -27,7 +27,10 @@ DEST.mkdir(parents=True, exist_ok=True)
 JSON_OUT = DEST / "stage1_analysis.json"
 sys.path.insert(0, str(REPO))
 from hbench.decisions import decision_margin, position_margin  # noqa: E402
-from hbench.runlog.writer import BlobStore, read_events  # noqa: E402
+from hbench.runlog.writer import BlobStore  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from resample import read_run_events  # noqa: E402
 
 THRESHOLDS = (0.05, 0.1, 0.15, 0.25, 0.5)
 report: dict = {}
@@ -74,8 +77,9 @@ def first_divergence(ta, tb):
 
 def decision_info(tokens, text):
     """Value-span margin, prefix-inclusive margin (positions 0..end of value), P_greedy for both defaults."""
-    out = {"value": None, "margin_span": None, "margin_prefix": None, "end": None,
-           "p_greedy_apichat": None, "p_greedy_v1": None}
+    out = {"value": None, "margin_span": None, "margin_prefix": None, "margin_prefix_raw": None,
+           "margin_prefix_free": None, "end": None,
+           "answer_token": None, "skip_positions": [], "p_greedy_apichat": None, "p_greedy_v1": None}
     try:
         value = json.loads(text).get("target")
     except (TypeError, ValueError, AttributeError):
@@ -88,7 +92,13 @@ def decision_info(tokens, text):
         return out
     end = max(d["span"])
     g = [x for x in gaps(tokens[: end + 1]) if x is not None]
-    out.update(margin_span=d["margin_value"], margin_prefix=min(g) if g else None, end=end,
+    # A thinking model's first answer token is forced by the format=json grammar (it wanted a newline), so its
+    # raw gap is about -20 for every decision; for such outputs margin_prefix skips constrained positions
+    # (hbench margin_free). Outputs without thinking (Stage 1, qwen2.5:14b) keep the raw prefix minimum.
+    raw = min(g) if g else None
+    out.update(margin_span=d["margin_value"], margin_prefix=d["margin_free"] if d["answer_token"] else raw,
+               margin_prefix_raw=raw, margin_prefix_free=d["margin_free"], answer_token=d["answer_token"], end=end,
+               skip_positions=d["constrained_positions"] if d["answer_token"] else [],
                p_greedy_apichat=math.prod(p_keep(tokens[i], 0.8, 0.9) for i in range(end + 1)),
                p_greedy_v1=math.prod(p_keep(tokens[i], 1.0, 1.0) for i in range(end + 1)))
     return out
@@ -102,7 +112,7 @@ def quantiles(x, qs=(0, 0.01, 0.05, 0.1, 0.25, 0.5)):
 # ------------------------------------------------------------------ A: margin survey
 rows, src_calls, path_counts, audits, natural_ram_restores = [], {}, Counter(), {}, []
 for rd in run_dirs(OUT / "1a"):
-    events = read_events(rd)
+    events = read_run_events(rd)
     header = next(e for e in events if e["type"] == "run_header")
     cond = header["condition"]
     study, mode = cond["data"]["study"], cond["method"]["mode"]
@@ -124,6 +134,7 @@ for rd in run_dirs(OUT / "1a"):
         toks = bs.get(c["token_logprobs"]) if c.get("token_logprobs") else None
         info = decision_info(toks, (c.get("output") or {}).get("text"))
         g = gaps(toks[: info["end"] + 1]) if info["end"] is not None else []
+        g = [x for i, x in enumerate(g) if i not in set(info["skip_positions"])]  # same positions margin_prefix uses
         rows.append(dict(run=rd.name, study=study, mode=mode, column=col, span_id=c["span_id"],
                          input_sha256=c["input_sha256"], path=c["engine"]["path_class"], status=p["status"],
                          legacy_status=p.get("legacy_status"), annotated=annotated.get(col),
@@ -171,7 +182,7 @@ B = {"n_replay_runs": 0, "n_replayed": 0}
 comp_rows, shift_rows, pre_rows, measured = [], [], [], {}
 for rd in run_dirs(OUT / "1b"):
     B["n_replay_runs"] += 1
-    events = read_events(rd)
+    events = read_run_events(rd)
     header = next(e for e in events if e["type"] == "run_header")
     src_run = Path(header["task"]["source_run"]).name
     bs = BlobStore(rd.parent / "_blobs")
@@ -272,7 +283,12 @@ if pre_rows:
 # measured signed-shift distribution (leave-one-call-out for replayed calls), the expected number of flips
 # should match the observed one.
 if len(sh) and len(cmp):
+    # 14b's resends all ran partial->single_token; a long (thinking) answer resends on other path pairs, so fall
+    # back to pooling every pair there
     pooled = sh[sh.pair == "partial->single_token"]
+    if not len(pooled):
+        pooled = sh
+    B["noise_model_pairs"] = sorted(pooled.pair.unique().tolist())
     all_d = np.sort(pooled.dgap.to_numpy())
     own = {c: np.sort(g.dgap.to_numpy()) for c, g in pooled.groupby("call")}
 
@@ -317,7 +333,7 @@ report["B_two_lineages"] = B
 C = {}
 tr = {}
 for rd in run_dirs(OUT / "1c"):
-    events = read_events(rd)
+    events = read_run_events(rd)
     header = next(e for e in events if e["type"] == "run_header")
     tr[header["condition"]["engine"]["transport"]] = (
         [e for e in events if e["type"] == "llm_call"], BlobStore(rd.parent / "_blobs"))
@@ -355,7 +371,7 @@ nat_by_mode = {m: {c["input_sha256"]: (c, b) for (run, _), (c, b) in src_calls.i
                    if run in set(df[(df.study == "clark") & (df["mode"] == m)].run)} for m in ("full", "shortlist")}
 prev = {}
 for rd in sorted(run_dirs(OUT / "1e"), key=lambda r: r.name.rsplit("-", 2)[1]):
-    events = read_events(rd)
+    events = read_run_events(rd)
     header = next(e for e in events if e["type"] == "run_header")
     mode = header["condition"]["method"]["mode"]
     bs = BlobStore(rd.parent / "_blobs")

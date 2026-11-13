@@ -1,0 +1,956 @@
+{
+ "A_margin_survey": {
+  "n_decisions": 1138,
+  "n_unique_inputs": 1120,
+  "n_no_value": 0,
+  "path_classes": {
+   "full:cold_full": 1,
+   "full:partial": 568,
+   "shortlist:partial": 568,
+   "shortlist:single_token": 1
+  },
+  "margin_span_equals_evidence": true,
+  "by_mode": {
+   "full": {
+    "n_unique": 560,
+    "margin_prefix_quantiles": {
+     "q0": 0.0018157958984375,
+     "q1": 0.03806520462036133,
+     "q5": 0.21595624685287476,
+     "q10": 0.410417115688324,
+     "q25": 1.0810861736536026,
+     "q50": 2.5019588731229305
+    },
+    "margin_span_quantiles": {
+     "q0": 0.0018157958984375,
+     "q1": 0.03806520462036133,
+     "q5": 0.21595624685287476,
+     "q10": 0.410417115688324,
+     "q25": 1.0810861736536026,
+     "q50": 2.5019588731229305
+    },
+    "n_prefix_margin_below": {
+     "0.05": 9,
+     "0.1": 16,
+     "0.15": 20,
+     "0.25": 34,
+     "0.5": 68
+    },
+    "n_prefix_lower_than_span": 148,
+    "apichat_default_deterministic_share": 0.5,
+    "apichat_expected_changes_between_two_runs": [
+     96.01898846931836,
+     128.73305816114905
+    ],
+    "v1_default_deterministic_share": 0.0,
+    "v1_expected_changes_between_two_runs": [
+     129.02191370890966,
+     178.01037279475
+    ],
+    "accuracy_annotated": 0.8227848101265823
+   },
+   "shortlist": {
+    "n_unique": 560,
+    "margin_prefix_quantiles": {
+     "q0": 0.0014190673828125,
+     "q1": 0.08044994056224823,
+     "q5": 0.39392305314540865,
+     "q10": 0.7390067577362063,
+     "q25": 1.8057928644120693,
+     "q50": 4.158390169497579
+    },
+    "margin_span_quantiles": {
+     "q0": 0.0014190673828125,
+     "q1": 0.08044994056224823,
+     "q5": 0.39392305314540865,
+     "q10": 0.7390067577362063,
+     "q25": 1.8057928644120693,
+     "q50": 4.546331482473761
+    },
+    "n_prefix_margin_below": {
+     "0.05": 3,
+     "0.1": 8,
+     "0.15": 9,
+     "0.25": 17,
+     "0.5": 38
+    },
+    "n_prefix_lower_than_span": 246,
+    "apichat_default_deterministic_share": 0.6696428571428571,
+    "apichat_expected_changes_between_two_runs": [
+     58.10202772844732,
+     72.10859699917276
+    ],
+    "v1_default_deterministic_share": 0.0017857142857142857,
+    "v1_expected_changes_between_two_runs": [
+     83.91765494102665,
+     104.066337620684
+    ],
+    "accuracy_annotated": 0.6962025316455697
+   }
+  },
+  "n_all_margin_below": {
+   "0.05": 13,
+   "0.1": 25,
+   "0.15": 30,
+   "0.25": 52,
+   "0.5": 107
+  },
+  "natural_off_batched_lineage": {
+   "single_token_calls": [
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-dou-20261103T051411Z-e71b",
+     "span_id": "driver:33",
+     "study": "dou",
+     "mode": "shortlist",
+     "column": "Tumor_Focality",
+     "value": "tumor_focality",
+     "margin_prefix": 4.152088021859527
+    }
+   ],
+   "ram_restores": [
+    {
+     "run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-dou-20261103T051411Z-e71b",
+     "span_id": "driver:33"
+    }
+   ]
+  },
+  "lowest_margins": [
+   {
+    "study": "gillette",
+    "mode": "shortlist",
+    "column": "Aliquot",
+    "value": "aliquots",
+    "margin_span": 0.0014,
+    "margin_prefix": 0.0014,
+    "p_greedy_apichat": 0.5004,
+    "correct": false
+   },
+   {
+    "study": "krug",
+    "mode": "full",
+    "column": "Tumor.Stage",
+    "value": "uicc_clinical_stage",
+    "margin_span": 0.0018,
+    "margin_prefix": 0.0018,
+    "p_greedy_apichat": 0.3191,
+    "correct": false
+   },
+   {
+    "study": "satpathy",
+    "mode": "full",
+    "column": "xCell.ImmuneScore.rna",
+    "value": "NONE",
+    "margin_span": 0.0187,
+    "margin_prefix": 0.0187,
+    "p_greedy_apichat": 0.5058,
+    "correct": true
+   },
+   {
+    "study": "dou",
+    "mode": "shortlist",
+    "column": "WGS_tumor_UUID",
+    "value": "tumor_code_id",
+    "margin_span": 0.021,
+    "margin_prefix": 0.021,
+    "p_greedy_apichat": 0.5066,
+    "correct": false
+   },
+   {
+    "study": "dou",
+    "mode": "full",
+    "column": "Histologic_type",
+    "value": "histologic_progression_type",
+    "margin_span": 0.0214,
+    "margin_prefix": 0.0214,
+    "p_greedy_apichat": 0.4673,
+    "correct": false
+   },
+   {
+    "study": "huang",
+    "mode": "shortlist",
+    "column": "num_yrs_alc_con",
+    "value": "days_to_consent",
+    "margin_span": 0.0277,
+    "margin_prefix": 0.0277,
+    "p_greedy_apichat": 0.5086,
+    "correct": false
+   },
+   {
+    "study": "krug",
+    "mode": "full",
+    "column": "PAM50",
+    "value": "pathologic_tumor_subtype",
+    "margin_span": 0.0289,
+    "margin_prefix": 0.0289,
+    "p_greedy_apichat": 0.0937,
+    "correct": false
+   },
+   {
+    "study": "gillette",
+    "mode": "full",
+    "column": "KEAP1.mutation.status",
+    "value": "mutation_codon",
+    "margin_span": 0.0329,
+    "margin_prefix": 0.0329,
+    "p_greedy_apichat": 0.2521,
+    "correct": false
+   },
+   {
+    "study": "vasaikar",
+    "mode": "full",
+    "column": "Mutation",
+    "value": "mutation_codon",
+    "margin_span": 0.0368,
+    "margin_prefix": 0.0368,
+    "p_greedy_apichat": 0.5115,
+    "correct": false
+   },
+   {
+    "study": "dou",
+    "mode": "full",
+    "column": "TP53_pathway",
+    "value": "NONE",
+    "margin_span": 0.0389,
+    "margin_prefix": 0.0389,
+    "p_greedy_apichat": 0.3148,
+    "correct": true
+   },
+   {
+    "study": "gillette",
+    "mode": "full",
+    "column": "EGFR.mutation.status",
+    "value": "mutation_codon",
+    "margin_span": 0.0472,
+    "margin_prefix": 0.0472,
+    "p_greedy_apichat": 0.3595,
+    "correct": false
+   },
+   {
+    "study": "vasaikar",
+    "mode": "full",
+    "column": "BRAF_mutation",
+    "value": "variant_type",
+    "margin_span": 0.0495,
+    "margin_prefix": 0.0495,
+    "p_greedy_apichat": 0.4645,
+    "correct": false
+   },
+   {
+    "study": "wang",
+    "mode": "shortlist",
+    "column": "age",
+    "value": "age_at_onset",
+    "margin_span": 0.0565,
+    "margin_prefix": 0.0565,
+    "p_greedy_apichat": 0.5176,
+    "correct": false
+   },
+   {
+    "study": "krug",
+    "mode": "shortlist",
+    "column": "GATA3.Mutation.Type",
+    "value": "mutation_codon",
+    "margin_span": 0.0624,
+    "margin_prefix": 0.0624,
+    "p_greedy_apichat": 0.5195,
+    "correct": false
+   },
+   {
+    "study": "dou",
+    "mode": "full",
+    "column": "TP53_TP53",
+    "value": "variant_type",
+    "margin_span": 0.0663,
+    "margin_prefix": 0.0663,
+    "p_greedy_apichat": 0.4011,
+    "correct": false
+   },
+   {
+    "study": "dou",
+    "mode": "shortlist",
+    "column": "Pathway_activity_NFkB",
+    "value": "weiss_assessment_score",
+    "margin_span": 0.0676,
+    "margin_prefix": 0.0676,
+    "p_greedy_apichat": 0.4264,
+    "correct": false
+   },
+   {
+    "study": "huang",
+    "mode": "full",
+    "column": "integrated_subtype",
+    "value": "integrated_subtype",
+    "margin_span": 0.0764,
+    "margin_prefix": 0.0764,
+    "p_greedy_apichat": 0.3797,
+    "correct": false
+   },
+   {
+    "study": "krug",
+    "mode": "full",
+    "column": "Age.in.Month",
+    "value": "age_at_diagnosis",
+    "margin_span": 0.0781,
+    "margin_prefix": 0.0781,
+    "p_greedy_apichat": 0.3326,
+    "correct": true
+   },
+   {
+    "study": "vasaikar",
+    "mode": "full",
+    "column": "miRNA-seq",
+    "value": "data_type",
+    "margin_span": 0.0792,
+    "margin_prefix": 0.0792,
+    "p_greedy_apichat": 0.4089,
+    "correct": false
+   },
+   {
+    "study": "huang",
+    "mode": "full",
+    "column": "tumor_stage",
+    "value": "uicc_clinical_stage",
+    "margin_span": 0.0803,
+    "margin_prefix": 0.0803,
+    "p_greedy_apichat": 0.5251,
+    "correct": false
+   },
+   {
+    "study": "cao",
+    "mode": "shortlist",
+    "column": "age",
+    "value": "age_at_diagnosis",
+    "margin_span": 0.0894,
+    "margin_prefix": 0.0894,
+    "p_greedy_apichat": 0.5279,
+    "correct": true
+   },
+   {
+    "study": "clark",
+    "mode": "shortlist",
+    "column": "Histologic_Type",
+    "value": "NONE",
+    "margin_span": 0.0957,
+    "margin_prefix": 0.0957,
+    "p_greedy_apichat": 0.5299,
+    "correct": false
+   },
+   {
+    "study": "gillette",
+    "mode": "full",
+    "column": "ARAF.mutation.status",
+    "value": "pathogenicity",
+    "margin_span": 0.0981,
+    "margin_prefix": 0.0981,
+    "p_greedy_apichat": 0.5306,
+    "correct": false
+   },
+   {
+    "study": "satpathy",
+    "mode": "full",
+    "column": "CDKN2A.pathway.alteration.status",
+    "value": "pathogenicity",
+    "margin_span": 0.0985,
+    "margin_prefix": 0.0985,
+    "p_greedy_apichat": 0.3904,
+    "correct": false
+   },
+   {
+    "study": "satpathy",
+    "mode": "shortlist",
+    "column": "NF1.mutation.status",
+    "value": "mutation_codon",
+    "margin_span": 0.112,
+    "margin_prefix": 0.112,
+    "p_greedy_apichat": 0.4554,
+    "correct": false
+   }
+  ],
+  "accuracy_by_study": [
+   {
+    "mode": "full",
+    "study": "cao",
+    "sum": 27,
+    "count": 29
+   },
+   {
+    "mode": "full",
+    "study": "clark",
+    "sum": 12,
+    "count": 14
+   },
+   {
+    "mode": "full",
+    "study": "dou",
+    "sum": 16,
+    "count": 20
+   },
+   {
+    "mode": "full",
+    "study": "gillette",
+    "sum": 12,
+    "count": 15
+   },
+   {
+    "mode": "full",
+    "study": "huang",
+    "sum": 17,
+    "count": 21
+   },
+   {
+    "mode": "full",
+    "study": "krug",
+    "sum": 3,
+    "count": 5
+   },
+   {
+    "mode": "full",
+    "study": "mcdermott",
+    "sum": 10,
+    "count": 14
+   },
+   {
+    "mode": "full",
+    "study": "satpathy",
+    "sum": 11,
+    "count": 12
+   },
+   {
+    "mode": "full",
+    "study": "vasaikar",
+    "sum": 11,
+    "count": 15
+   },
+   {
+    "mode": "full",
+    "study": "wang",
+    "sum": 18,
+    "count": 20
+   },
+   {
+    "mode": "shortlist",
+    "study": "cao",
+    "sum": 26,
+    "count": 29
+   },
+   {
+    "mode": "shortlist",
+    "study": "clark",
+    "sum": 9,
+    "count": 14
+   },
+   {
+    "mode": "shortlist",
+    "study": "dou",
+    "sum": 14,
+    "count": 20
+   },
+   {
+    "mode": "shortlist",
+    "study": "gillette",
+    "sum": 10,
+    "count": 15
+   },
+   {
+    "mode": "shortlist",
+    "study": "huang",
+    "sum": 12,
+    "count": 21
+   },
+   {
+    "mode": "shortlist",
+    "study": "krug",
+    "sum": 3,
+    "count": 5
+   },
+   {
+    "mode": "shortlist",
+    "study": "mcdermott",
+    "sum": 8,
+    "count": 14
+   },
+   {
+    "mode": "shortlist",
+    "study": "satpathy",
+    "sum": 7,
+    "count": 12
+   },
+   {
+    "mode": "shortlist",
+    "study": "vasaikar",
+    "sum": 11,
+    "count": 15
+   },
+   {
+    "mode": "shortlist",
+    "study": "wang",
+    "sum": 16,
+    "count": 20
+   }
+  ]
+ },
+ "B_two_lineages": {
+  "n_replay_runs": 20,
+  "n_replayed": 158,
+  "paths": [
+   {
+    "path_source": "partial",
+    "path_replay": "single_token",
+    "n": 158
+   }
+  ],
+  "text_changed": 16,
+  "decision_flipped": 3,
+  "flips": [
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-cao-20261103T051050Z-b82c",
+    "source_call": 4,
+    "decision": "age_at_diagnosis",
+    "decision_replay": "age_at_diagnosis",
+    "margin_source": 0.08935552835464478,
+    "margin_replay": 0.04600900411605835,
+    "first_divergent_token": 19.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-clark-20261103T045027Z-d9bb",
+    "source_call": 2,
+    "decision": "gender",
+    "decision_replay": "gender",
+    "margin_source": 10.108272790039337,
+    "margin_replay": 10.028800724921894,
+    "first_divergent_token": 32.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-dou-20261103T045103Z-7e69",
+    "source_call": 35,
+    "decision": "prognesterone_receptor",
+    "decision_replay": "prognesterone_receptor",
+    "margin_source": 0.4602660536766052,
+    "margin_replay": 0.4584197998046875,
+    "first_divergent_token": 16.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-dou-20261103T051411Z-e71b",
+    "source_call": 89,
+    "decision": "NONE",
+    "decision_replay": "NONE",
+    "margin_source": 0.3645324110984802,
+    "margin_replay": 0.3753356337547302,
+    "first_divergent_token": 29.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-gillette-20261103T052505Z-7249",
+    "source_call": 5,
+    "decision": "aliquots",
+    "decision_replay": "NONE",
+    "margin_source": 0.0014190673828125,
+    "margin_replay": 0.027923583984375,
+    "first_divergent_token": 4.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-huang-20261103T052904Z-168e",
+    "source_call": 7,
+    "decision": "cigarettes_per_day",
+    "decision_replay": "cigarettes_per_day",
+    "margin_source": 8.440425417473307,
+    "margin_replay": 8.417423506820342,
+    "first_divergent_token": 17.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-krug-20261103T050214Z-a0ad",
+    "source_call": 4,
+    "decision": "uicc_clinical_stage",
+    "decision_replay": "ajcc_clinical_stage",
+    "margin_source": 0.0018157958984375,
+    "margin_replay": 0.0018310546875,
+    "first_divergent_token": 4.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-krug-20261103T050214Z-a0ad",
+    "source_call": 6,
+    "decision": "pathologic_tumor_subtype",
+    "decision_replay": "pathologic_tumor_subclassification",
+    "margin_source": 0.028901994228363037,
+    "margin_replay": 0.020084381103515625,
+    "first_divergent_token": 9.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-krug-20261103T053127Z-3005",
+    "source_call": 24,
+    "decision": "percent_stromal_cells",
+    "decision_replay": "percent_stromal_cells",
+    "margin_source": 0.3810615539550781,
+    "margin_replay": 0.3924598693847656,
+    "first_divergent_token": 24.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-krug-20261103T053127Z-3005",
+    "source_call": 47,
+    "decision": "somatic_mutation_indexes",
+    "decision_replay": "somatic_mutation_indexes",
+    "margin_source": 0.46461862325668335,
+    "margin_replay": 0.5171509981155396,
+    "first_divergent_token": 37.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-mcdermott-20261103T050410Z-759e",
+    "source_call": 1,
+    "decision": "bcr_id",
+    "decision_replay": "bcr_id",
+    "margin_source": 0.45582956075668335,
+    "margin_replay": 0.45314788818359375,
+    "first_divergent_token": 27.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-satpathy-20261103T050458Z-fd51",
+    "source_call": 14,
+    "decision": "pathology_reports",
+    "decision_replay": "pathology_reports",
+    "margin_source": 0.3967704772949219,
+    "margin_replay": 0.3983001112937927,
+    "first_divergent_token": 15.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-satpathy-20261103T050458Z-fd51",
+    "source_call": 52,
+    "decision": "variant_origin",
+    "decision_replay": "variant_origin",
+    "margin_source": 0.27352142333984375,
+    "margin_replay": 0.2811737060546875,
+    "first_divergent_token": 17.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r1-satpathy-20261103T050458Z-fd51",
+    "source_call": 78,
+    "decision": "NONE",
+    "decision_replay": "NONE",
+    "margin_source": 0.01865386962890625,
+    "margin_replay": 0.018432557582855225,
+    "first_divergent_token": 13.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-satpathy-20261103T053619Z-cf6f",
+    "source_call": 2,
+    "decision": "experiment_name",
+    "decision_replay": "experiment_name",
+    "margin_source": 0.18801122903823853,
+    "margin_replay": 0.17797094583511353,
+    "first_divergent_token": 18.0
+   },
+   {
+    "source_run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r1-vasaikar-20261103T054117Z-b57a",
+    "source_call": 15,
+    "decision": "ajcc_clinical_t",
+    "decision_replay": "ajcc_clinical_t",
+    "margin_source": 0.1846199631690979,
+    "margin_replay": 0.17586129903793335,
+    "first_divergent_token": 16.0
+   }
+  ],
+  "d_margin_quantiles_abs": {
+   "q50": 0.014967808499932289,
+   "q90": 0.05061493664979935,
+   "q99": 0.08887586802244188,
+   "q100": 0.09960556030273438
+  },
+  "d_margin_sign": {
+   "negative": 82,
+   "positive": 76,
+   "zero": 0
+  },
+  "gap_shift": {
+   "partial->single_token": {
+    "n_positions": 4890,
+    "n_calls": 158,
+    "share_zero": 0.0,
+    "abs_quantiles": {
+     "q50": 0.022593610920011997,
+     "q90": 0.06545219421386722,
+     "q99": 0.13964417316019523,
+     "q99.9": 0.20084041531383542,
+     "q100": 0.3259123591706157
+    },
+    "bootstrap_ci95": {
+     "median": [
+      0.021777554694673996,
+      0.02338947040516359
+     ],
+     "p90": [
+      0.06331217242404819,
+      0.06851862338022328
+     ],
+     "p99": [
+      0.13214614546720996,
+      0.14912796020507812
+     ],
+     "max": [
+      0.24919486790895462,
+      0.3259123591706157
+     ]
+    },
+    "decision_prefix_positions": {
+     "q50": 0.01770108938217163,
+     "q90": 0.05088506340980534,
+     "q99": 0.10326133728027334,
+     "q100": 0.24919486790895462
+    },
+    "nonzero_share_negative": 0.48773006134969327,
+    "by_gap_bin": [
+     {
+      "gap_from": 0,
+      "gap_to": 0.5,
+      "n": 444,
+      "q50": 0.02008533477783203,
+      "q90": 0.05597950220108032,
+      "q100": 0.15014278888702393,
+      "nonzero_share_negative": 0.5202702702702703
+     },
+     {
+      "gap_from": 0.5,
+      "gap_to": 1,
+      "n": 317,
+      "q50": 0.020534545183181763,
+      "q90": 0.05816427469253541,
+      "q100": 0.14396286010742188,
+      "nonzero_share_negative": 0.47634069400630913
+     },
+     {
+      "gap_from": 1,
+      "gap_to": 3,
+      "n": 793,
+      "q50": 0.02107221633195877,
+      "q90": 0.06239942014217378,
+      "q100": 0.23303024470806122,
+      "nonzero_share_negative": 0.5245901639344263
+     },
+     {
+      "gap_from": 3,
+      "gap_to": 6,
+      "n": 685,
+      "q50": 0.023727118968963623,
+      "q90": 0.0618616968393326,
+      "q100": 0.3259123591706157,
+      "nonzero_share_negative": 0.527007299270073
+     },
+     {
+      "gap_from": 6,
+      "gap_to": 1000000000.0,
+      "n": 2651,
+      "q50": 0.023662567138671875,
+      "q90": 0.0703582763671875,
+      "q100": 0.3125462532051415,
+      "nonzero_share_negative": 0.4624669935873255
+     }
+    ]
+   }
+  },
+  "presend_batched_bitwise": {
+   "n": 158,
+   "bitwise": 150,
+   "paths": {
+    "partial": 150,
+    "single_token": 8
+   },
+   "batched": {
+    "n": 150,
+    "bitwise": 150,
+    "split_point_moved": 25,
+    "split_point_moved_bitwise": 25,
+    "cached_source_range": [
+     50,
+     3737
+    ],
+    "cached_pre_range": [
+     46,
+     3737
+    ]
+   },
+   "single_token": {
+    "n": 8,
+    "ram_restore": 8,
+    "bitwise_vs_source": 0,
+    "bitwise_vs_measured_send": 8
+   }
+  },
+  "noise_model_check": {
+   "replayed_observed_flips": 3,
+   "replayed_expected_flips_loo": 3.2545906118618935,
+   "by_margin_bin": [
+    {
+     "margin_from": 0.0,
+     "margin_to": 0.01,
+     "n": 2,
+     "observed": 2,
+     "expected": 0.9279426816786079
+    },
+    {
+     "margin_from": 0.01,
+     "margin_to": 0.03,
+     "n": 5,
+     "observed": 1,
+     "expected": 1.1682245853010598
+    },
+    {
+     "margin_from": 0.03,
+     "margin_to": 0.1,
+     "n": 18,
+     "observed": 0,
+     "expected": 1.109844024873461
+    },
+    {
+     "margin_from": 0.1,
+     "margin_to": 0.5,
+     "n": 82,
+     "observed": 0,
+     "expected": 0.04857932000876475
+    },
+    {
+     "margin_from": 0.5,
+     "margin_to": Infinity,
+     "n": 51,
+     "observed": 0,
+     "expected": 0.0
+    }
+   ],
+   "all_decisions_expected_flips": 3.2566106699118853,
+   "decisions_margin_below_0.5": 107,
+   "decisions_margin_below_0.5_replayed": 107,
+   "max_abs_shift": 0.3259123591706157,
+   "decisions_margin_above_max_shift": 1070
+  }
+ },
+ "C_transport": {
+  "n_steps": 16,
+  "same_prompt_tokens": 16,
+  "same_text": 16,
+  "same_tokens": 16,
+  "bitwise": 16,
+  "max_abs_d_any": 0.0,
+  "paths": [
+   [
+    [
+     "cold_full",
+     "full"
+    ],
+    16
+   ]
+  ],
+  "cold_vs_natural_1a": {
+   "n": 16,
+   "bitwise": 16,
+   "natural_paths": [
+    [
+     "partial",
+     16
+    ]
+   ]
+  }
+ },
+ "E_back_to_back": [
+  {
+   "run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r4-clark-20261103T061504Z-1fc2",
+   "mode": "shortlist",
+   "n_calls": 16,
+   "paths": [
+    [
+     "partial",
+     15
+    ],
+    [
+     "cold_full",
+     1
+    ]
+   ],
+   "ram_restores": 0,
+   "ram_restored_steps": [],
+   "bitwise_vs_1a": 16,
+   "same_text_vs_1a": 16,
+   "decisions_changed_vs_1a": [],
+   "bitwise_vs_previous_repeat": null
+  },
+  {
+   "run": "qwen_local-clark_match_shortlist_qwen2.5_14b_T0.0_s1_r5-clark-20261103T061609Z-1214",
+   "mode": "shortlist",
+   "n_calls": 16,
+   "paths": [
+    [
+     "single_token",
+     16
+    ]
+   ],
+   "ram_restores": 16,
+   "ram_restored_steps": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "bitwise_vs_1a": 0,
+   "same_text_vs_1a": 16,
+   "decisions_changed_vs_1a": [],
+   "bitwise_vs_previous_repeat": 0
+  },
+  {
+   "run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r4-clark-20261103T061638Z-cd64",
+   "mode": "full",
+   "n_calls": 16,
+   "paths": [
+    [
+     "partial",
+     16
+    ]
+   ],
+   "ram_restores": 0,
+   "ram_restored_steps": [],
+   "bitwise_vs_1a": 16,
+   "same_text_vs_1a": 16,
+   "decisions_changed_vs_1a": [],
+   "bitwise_vs_previous_repeat": null
+  },
+  {
+   "run": "qwen_local-clark_match_full_qwen2.5_14b_T0.0_s1_r5-clark-20261103T061731Z-557e",
+   "mode": "full",
+   "n_calls": 16,
+   "paths": [
+    [
+     "partial",
+     16
+    ]
+   ],
+   "ram_restores": 0,
+   "ram_restored_steps": [],
+   "bitwise_vs_1a": 16,
+   "same_text_vs_1a": 16,
+   "decisions_changed_vs_1a": [],
+   "bitwise_vs_previous_repeat": 16
+  }
+ ],
+ "D_audits": {
+  "n_runs": 46,
+  "foreign_tasks": 0,
+  "runner_starts": 34,
+  "other_requests": 110,
+  "unmatched_calls": 0,
+  "truncated": 0,
+  "ram_restores": 25,
+  "sampler_mismatches": 0,
+  "cache_disagreements": 0,
+  "unavailable": 0
+ },
+ "D_validate": {
+  "n_runs": 42,
+  "runs_with_problems": {}
+ }
+}
