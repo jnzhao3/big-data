@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "mcp__matcher__*",
+      "ToolSearch",
+      "WaitForMcpServers"
+    ],
+    "deny": [
+      "Agent",
+      "Artifact",
+      "AskUserQuestion",
+      "Bash",
+      "BashOutput",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "Edit",
+      "EnterPlanMode",
+      "EnterWorktree",
+      "ExitPlanMode",
+      "ExitWorktree",
+      "Glob",
+      "Grep",
+      "KillShell",
+      "LS",
+      "LSP",
+      "ListAgents",
+      "ListMcpResourcesTool",
+      "Monitor",
+      "MultiEdit",
+      "NotebookEdit",
+      "NotebookRead",
+      "PowerShell",
+      "PushNotification",
+      "Read",
+      "ReadMcpResourceTool",
+      "RemoteTrigger",
+      "ReportFindings",
+      "ScheduleWakeup",
+      "SendFeedback",
+      "SendMessage",
+      "SendUserFile",
+      "ShareOnboardingGuide",
+      "Skill",
+      "SubagentHandback",
+      "Task",
+      "TaskCreate",
+      "TaskGet",
+      "TaskList",
+      "TaskOutput",
+      "TaskStop",
+      "TaskUpdate",
+      "TodoWrite",
+      "WebFetch",
+      "WebSearch",
+      "Workflow",
+      "Write"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "matcher"
+  ],
+  "disableClaudeAiConnectors": true,
+  "enableArtifact": false,
+  "showThinkingSummaries": true,
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{HOOK_COMMAND}}",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{HOOK_COMMAND}}",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{HOOK_COMMAND}}",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{HOOK_COMMAND}}",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

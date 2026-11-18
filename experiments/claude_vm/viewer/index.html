@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session Timeline</title>
+<style>
+:root {
+  --bg: #fcfcfb; --panel: #ffffff; --line: #e6e5e0; --ink: #0b0b0b; --ink2: #52514e; --ink3: #8a8981;
+  --chip: #f1f0ec; --focus: #2a78d6; --err: #c4321a;
+  --k-user: #2a78d6; --k-assistant: #1baf7a; --k-thinking: #6250d6; --k-call: #eb6834; --k-result: #eda100;
+  --k-server: #e87ba4; --k-compact: #008300; --k-hook: #52514e; --k-other: #b5b4ad;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1a19; --panel: #222220; --line: #36352f; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e85;
+    --chip: #2c2b28; --focus: #3987e5; --err: #ff7a5c;
+    --k-user: #3987e5; --k-assistant: #199e70; --k-thinking: #9085e9; --k-call: #d95926; --k-result: #c98500;
+    --k-server: #d55181; --k-compact: #2fa52f; --k-hook: #a6a59b; --k-other: #6c6b64;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1a19; --panel: #222220; --line: #36352f; --ink: #f0efec; --ink2: #c3c2b7; --ink3: #8f8e85;
+  --chip: #2c2b28; --focus: #3987e5; --err: #ff7a5c;
+  --k-user: #3987e5; --k-assistant: #199e70; --k-thinking: #9085e9; --k-call: #d95926; --k-result: #c98500;
+  --k-server: #d55181; --k-compact: #2fa52f; --k-hook: #a6a59b; --k-other: #6c6b64;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 12px 16px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+h1 { font-size: 16px; margin: 0 8px 0 0; font-weight: 600; }
+select, input[type=search] { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; max-width: 100%; }
+#session { min-width: 0; flex: 1 1 320px; }
+#search { flex: 1 1 200px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); color: var(--ink2); cursor: pointer; user-select: none; font-size: 12px; }
+.chip[aria-pressed="false"] { opacity: .45; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+main { padding: 16px; max-width: 1200px; margin: 0 auto; }
+.summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.card .k { color: var(--ink2); font-size: 12px; }
+.card .v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.card .s { color: var(--ink3); font-size: 12px; overflow-wrap: anywhere; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 13px; }
+th { color: var(--ink2); font-weight: 500; }
+.tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.tablewrap { overflow-x: auto; }
+.meta { color: var(--ink2); font-size: 12px; margin-bottom: 10px; overflow-wrap: anywhere; }
+#timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--line); margin-left: 6px; }
+.ev { position: relative; margin: 0 0 6px 0; padding: 6px 10px 6px 16px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--kc); border-radius: 6px; margin-left: 12px; }
+.ev::before { content: ""; position: absolute; left: -21px; top: 12px; width: 10px; height: 10px; border-radius: 50%; background: var(--kc); border: 2px solid var(--bg); }
+.ev.hl { outline: 2px solid var(--focus); }
+.ev .row { display: flex; gap: 8px; align-items: baseline; min-width: 0; cursor: pointer; }
+.t { color: var(--ink3); font-size: 12px; font-variant-numeric: tabular-nums; flex: none; width: 64px; }
+.badge { flex: none; font-size: 11px; padding: 1px 7px; border-radius: 4px; background: var(--chip); color: var(--ink); border: 1px solid var(--line); }
+.label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.ev.open .label { white-space: normal; overflow-wrap: anywhere; }
+.links { margin-top: 4px; font-size: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+.links a { color: var(--focus); text-decoration: none; cursor: pointer; }
+.err { color: var(--err); }
+pre { margin: 6px 0 0; padding: 8px; background: var(--chip); border-radius: 6px; overflow: auto; max-height: 480px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+details summary { cursor: pointer; color: var(--ink2); font-size: 12px; margin-top: 4px; }
+.empty { color: var(--ink2); padding: 24px 0; }
+.count { color: var(--ink3); font-size: 12px; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink2); cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+[hidden] { display: none !important; }
+.ctl { display: inline-flex; align-items: center; gap: 6px; color: var(--ink2); font-size: 13px; }
+.cmp-table th { cursor: pointer; user-select: none; vertical-align: bottom; max-width: 96px; line-height: 1.25; }
+.cmp-table th[data-sort]::after { content: " ↕"; color: var(--ink3); font-size: 11px; }
+.cmp-table th.sorted-asc::after { content: " ↑"; color: var(--ink); }
+.cmp-table th.sorted-desc::after { content: " ↓"; color: var(--ink); }
+.cmp-table td { white-space: nowrap; }
+.cmp-table td.num, .cmp-table th.num { text-align: right; }
+.barcell { position: relative; min-width: 92px; height: 20px; }
+.barcell .fill { position: absolute; left: 0; top: 3px; bottom: 3px; border-radius: 0 4px 4px 0; background: var(--k-user); opacity: .28; }
+.barcell .val { position: relative; padding-left: 4px; line-height: 20px; }
+.heat td.hv { text-align: right; font-variant-numeric: tabular-nums; background: color-mix(in srgb, var(--k-user) calc(var(--h) * 55%), transparent); }
+.flag { display: inline-block; font-size: 11px; padding: 0 6px; margin-right: 3px; border-radius: 4px; border: 1px solid var(--line); background: var(--chip); color: var(--ink2); }
+.linkbtn { font: inherit; color: var(--focus); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.ok { color: var(--k-assistant); } .bad { color: var(--err); }
+.section-title { font-size: 14px; font-weight: 600; margin: 20px 0 8px; }
+.note { color: var(--ink2); font-size: 12px; margin: 6px 0 0; }
+@media (max-width: 600px) { .t { width: 52px; } main { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1>Session Timeline</h1>
+    <nav class="tabs" role="tablist" aria-label="View">
+      <button role="tab" id="tab-timeline" aria-selected="true">Timeline</button>
+      <button role="tab" id="tab-compare" aria-selected="false">Compare runs</button>
+    </nav>
+  </div>
+  <div id="tl-controls">
+    <div class="bar" style="margin-top:8px">
+      <select id="session" aria-label="Session"></select>
+      <select id="tool" aria-label="Tool filter"><option value="">all tools</option></select>
+      <input id="search" type="search" placeholder="Search events" aria-label="Search events">
+      <span class="count" id="count"></span>
+    </div>
+    <div class="chips" id="kinds" role="group" aria-label="Event types"></div>
+  </div>
+  <div id="cmp-controls" class="bar" style="margin-top:8px" hidden>
+    <label class="ctl">Study <select id="cmp-study"><option value="">all</option></select></label>
+    <label class="ctl">Category <select id="cmp-cat">
+      <option value="all_but_no_legal_target">all items</option>
+      <option value="categorical">categorical</option>
+      <option value="numeric_identity">numeric identity</option>
+      <option value="age_conversion">age conversion</option>
+      <option value="no_legal_target">no legal target</option>
+    </select></label>
+    <label class="ctl"><input type="checkbox" id="cmp-e3"> E3 BDI-Kit runs (reference)</label>
+    <span class="count" id="cmp-count"></span>
+  </div>
+</header>
+<main>
+  <section id="view-timeline">
+    <div class="meta" id="meta"></div>
+    <div class="summary" id="summary"></div>
+    <div class="tables" id="tables"></div>
+    <ol id="timeline"></ol>
+  </section>
+  <section id="view-compare" hidden>
+    <div class="card tablewrap">
+      <div class="k" id="cmp-title">Runs</div>
+      <table class="cmp-table" id="cmp-table"></table>
+      <p class="note">strict = hbench (an unsubmitted item with an empty gold set counts as correct); answered = correct and submitted. Compare runs only within the same conditions: mode, search-only and its top k, code. Click a run to open its timeline.</p>
+      <p class="note" id="cmp-e3-note" hidden>E3 rows: the BDI-Kit agent on local Qwen (end to end, asked for categorical attributes only). Only its committed numbers exist: categorical strict and coverage, and all-items strict. Compare them with end-to-end Claude runs.</p>
+    </div>
+    <div class="section-title">All categories, answered accuracy</div>
+    <div class="card tablewrap"><table class="heat" id="cmp-heat"></table>
+      <p class="note">Cell shade follows the value. For E3 rows (no answered-only score) the strict score is shown, marked *.</p></div>
+    <div class="section-title">Item-level differences between two runs</div>
+    <div class="card">
+      <div class="bar">
+        <label class="ctl">A <select id="diff-a"></select></label>
+        <label class="ctl">B <select id="diff-b"></select></label>
+        <button class="tabs-btn linkbtn" id="diff-go">Compare items</button>
+      </div>
+      <div id="diff-out" class="tablewrap" style="margin-top:10px"></div>
+    </div>
+  </section>
+</main>
+<script>
+const KINDS = [
+  ["user_message", "user message", "--k-user", true],
+  ["assistant_text", "assistant text", "--k-assistant", true],
+  ["thinking", "thinking", "--k-thinking", true],
+  ["tool_call", "tool call", "--k-call", true],
+  ["tool_result", "tool result", "--k-result", true],
+  ["server_log", "server log", "--k-server", true],
+  ["compaction", "compaction", "--k-compact", true],
+  ["hook_event", "hook event", "--k-hook", true],
+  ["system", "system", "--k-other", true],
+  ["other", "other", "--k-other", true],
+  ["meta", "bookkeeping", "--k-other", false],
+];
+const KIND = Object.fromEntries(KINDS.map(k => [k[0], {label: k[1], color: k[2]}]));
+const state = { doc: null, kinds: Object.fromEntries(KINDS.map(k => [k[0], k[3]])), tool: "", q: "", open: new Set() };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (x, d = 3) => x == null ? "–" : (typeof x === "number" ? (Number.isInteger(x) ? String(x) : x.toFixed(d)) : esc(x));
+const pct = x => x == null ? "–" : (100 * x).toFixed(1) + "%";
+
+function chips() {
+  $("kinds").innerHTML = KINDS.map(([k, label, color]) =>
+    `<span class="chip" role="button" tabindex="0" data-k="${k}" aria-pressed="${state.kinds[k]}"><span class="dot" style="background:var(${color})"></span>${label}<span class="count" data-n="${k}"></span></span>`).join("");
+  $("kinds").querySelectorAll(".chip").forEach(c => {
+    const toggle = () => { state.kinds[c.dataset.k] = !state.kinds[c.dataset.k]; c.setAttribute("aria-pressed", state.kinds[c.dataset.k]); render(); };
+    c.onclick = toggle; c.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } };
+  });
+}
+
+async function loadSessions() {
+  const r = await fetch("/api/sessions"); const j = await r.json();
+  const sel = $("session");
+  sel.innerHTML = j.sessions.length ? j.sessions.map(s =>
+    `<option value="${esc(s.session_id)}">${esc((s.start_time || "").replace("T", " ").slice(0, 19))} · ${esc(s.study)} · ${esc(s.mode)}${s.allow_sql ? " · sql" : ""}${s.search_only ? " · search-only" : ""}${s.allow_code ? " · code" : ""} · ${esc(s.status)}</option>`).join("")
+    : `<option value="">no sessions in ${esc(j.root)}</option>`;
+  const want = location.hash.slice(1);
+  if (want && j.sessions.some(s => s.session_id === want)) sel.value = want;
+  if (sel.value) loadSession(sel.value);
+}
+
+async function loadSession(sid) {
+  if (!$("view-timeline").hidden) history.replaceState(null, "", "#" + sid);
+  $("timeline").innerHTML = `<li class="empty">Loading…</li>`;
+  const r = await fetch("/api/session/" + encodeURIComponent(sid));
+  state.doc = await r.json(); state.open = new Set();
+  const tools = [...new Set(state.doc.events.filter(e => e.tool).map(e => e.tool))].sort();
+  $("tool").innerHTML = `<option value="">all tools</option>` + tools.map(t => `<option>${esc(t)}</option>`).join("");
+  state.tool = "";
+  summary(); render();
+}
+
+function summary() {
+  const d = state.doc, s = d.summary || {}, ix = d.index || {}, sub = s.submissions || {};
+  $("meta").innerHTML = `session ${esc(d.session_id)} · study <b>${esc(ix.study)}</b> · mode <b>${esc(ix.mode)}</b> · SQL ${ix.allow_sql ? "on" : "off"}${ix.search_only ? ` · <b>search-only</b> (top ${esc(ix.search_top_k)})` : ""}${ix.allow_code ? " · <b>code</b>" : ""} · Claude Code ${esc(ix.claude_version)} · model ${esc((ix.models_used || []).join(", ") || ix.model_requested || "default")} · commit ${esc((ix.repo_commit || "").slice(0, 8))}${ix.repo_dirty ? " (dirty)" : ""}`;
+  const top = Object.entries(s.tool_calls_by_tool || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${esc(t)} ${n}`).join(" · ");
+  const cards = [
+    ["Duration", s.duration_s == null ? "–" : (s.duration_s / 60).toFixed(1) + " min", ix.status || ""],
+    ["Tool calls", fmt(s.tool_calls), top || "none"],
+    ["Rows returned", fmt(s.rows_returned), `${fmt(s.tool_errors)} tool errors`],
+    ["Items answered", fmt(sub.items_answered), `${fmt(sub.values)} values · ${fmt(sub.explicit_none)} explicit NONE · ${fmt(sub.submission_events)} submissions`],
+  ];
+  const cal = d.scores?.calibration?.all_attempted;
+  if (cal && cal.n) cards.push(["Calibration", `Brier ${fmt(cal.brier)}`, `ECE ${fmt(cal.ece)} · mean conf ${pct(cal.mean_confidence)} · acc ${pct(cal.accuracy)} · n ${cal.n}`]);
+  $("summary").innerHTML = cards.map(([k, v, sm]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sm}</div></div>`).join("");
+
+  let html = "";
+  const cats = d.scores?.by_category;
+  const accTable = (title, rows) => `<div class="card tablewrap"><div class="k">${title}</div><table><thead><tr><th>category</th><th>items</th><th title="hbench: an unsubmitted item with an empty gold set counts as correct">strict (hbench)</th><th title="correct only if the session submitted the item">strict, answered only</th><th>lenient, answered only</th><th>coverage</th></tr></thead><tbody>` +
+    Object.entries(rows).map(([c, v]) => `<tr><td>${esc(c)}</td><td>${fmt(v.n_items)}</td><td>${pct(v.micro)}</td><td>${pct(v.micro_answered)}</td><td>${pct(v.micro_lenient_answered)}</td><td>${pct(v.coverage)}</td></tr>`).join("") +
+    `</tbody></table><div class="s">strict (hbench) counts an unsubmitted item whose gold set is empty as correct; the answered-only columns do not.</div></div>`;
+  if (cats) {
+    html += accTable(`Accuracy by category (${esc(d.scores.mode)})`, cats);
+    const calc = Object.entries(d.scores.calibration || {}).filter(([, v]) => v && v.n);
+    html += `<div class="card tablewrap"><div class="k">Calibration (attempted items)</div>` + (calc.length
+      ? `<table><thead><tr><th>group</th><th>n</th><th>Brier</th><th>ECE</th><th>mean conf</th><th>accuracy</th></tr></thead><tbody>` +
+        calc.map(([c, v]) => `<tr><td>${esc(c)}</td><td>${v.n}</td><td>${fmt(v.brier)}</td><td>${fmt(v.ece)}</td><td>${pct(v.mean_confidence)}</td><td>${pct(v.accuracy)}</td></tr>`).join("") + `</tbody></table>`
+      : `<div class="s">No submitted items with a confidence, so there is nothing to calibrate.</div>`) + `</div>`;
+    const rm = d.scores.restricted_to_mapped_pairs;
+    if (rm && Object.keys(rm).length) html += accTable("End-to-end: items of mapped pairs only", rm);
+  } else if (d.scores) {
+    html = `<div class="card"><div class="k">Score</div><div class="s">This session was scored by an older version of the harness; run <code>session.py rebuild ${esc(d.session_id)}</code> to update it.</div></div>`;
+  } else {
+    html = `<div class="card"><div class="k">Score</div><div class="s">Not scored yet (the session may still be running, or scoring failed: ${esc((ix.problems || []).join("; ") || "no scores.json")}).</div></div>`;
+  }
+  $("tables").innerHTML = html;
+}
+
+function visible() {
+  const q = state.q.toLowerCase();
+  return state.doc.events.filter(e => state.kinds[e.kind] ?? true)
+    .filter(e => !state.tool || e.tool === state.tool)
+    .filter(e => !q || (e.label || "").toLowerCase().includes(q) || JSON.stringify(e.raw ?? "").toLowerCase().includes(q));
+}
+
+function rel(e) {
+  const t0 = state.doc.summary?.start; if (!t0 || !e.ts) return "";
+  const t = Date.parse(e.ts) / 1000 - t0; if (!isFinite(t)) return "";
+  const m = Math.floor(t / 60), s = Math.floor(t % 60);
+  return `+${m}:${String(s).padStart(2, "0")}`;
+}
+
+function badge(e) {
+  let b = KIND[e.kind]?.label || e.kind;
+  if (e.kind === "thinking") b += e.thinking_display === "summary" ? " (summary)" : " (redacted)";
+  if (e.sidechain) b += " · subagent";
+  return b;
+}
+
+function render() {
+  if (!state.doc) return;
+  const counts = {}; state.doc.events.forEach(e => counts[e.kind] = (counts[e.kind] || 0) + 1);
+  document.querySelectorAll("[data-n]").forEach(n => n.textContent = counts[n.dataset.n] ? ` ${counts[n.dataset.n]}` : "");
+  const evs = visible();
+  $("count").textContent = `${evs.length} of ${state.doc.events.length} events`;
+  if (!evs.length) { $("timeline").innerHTML = `<li class="empty">No events match.</li>`; return; }
+  const LIMIT = 3000;
+  $("timeline").innerHTML = evs.slice(0, LIMIT).map(e => {
+    const color = `var(${KIND[e.kind]?.color || "--k-other"})`;
+    const links = [];
+    if (e.result_ref) links.push(`<a data-go="${e.result_ref}">result →</a>`);
+    if (e.call_ref) links.push(`<a data-go="${e.call_ref}">← call</a>`);
+    if (e.server_ref) links.push(`<a data-go="${e.server_ref}">server log →</a>`);
+    const err = e.is_error || e.error ? ` <span class="err">error</span>` : "";
+    const open = state.open.has(e.id);
+    return `<li class="ev${open ? " open" : ""}" id="${e.id}" style="--kc:${color}">
+      <div class="row" data-toggle="${e.id}"><span class="t">${rel(e)}</span><span class="badge">${esc(badge(e))}</span>${e.tool ? `<span class="badge">${esc(e.tool)}</span>` : ""}<span class="label">${esc(e.label)}${err}</span></div>
+      ${links.length ? `<div class="links">${links.join("")}</div>` : ""}
+      ${open ? detail(e) : ""}</li>`;
+  }).join("") + (evs.length > LIMIT ? `<li class="empty">Showing the first ${LIMIT} events; narrow the filters to see the rest.</li>` : "");
+}
+
+function detail(e) {
+  const raw = JSON.stringify(e.raw ?? e, null, 1);
+  const big = raw.length > 4000;
+  const head = `<div class="meta">${esc(e.ts || "no timestamp")} · ${esc(e.source)}${e.file ? " · " + esc(e.file) : ""}</div>`;
+  return head + (big ? `<details><summary>JSON (${(raw.length / 1024).toFixed(1)} KB, collapsed)</summary><pre>${esc(raw)}</pre></details>` : `<pre>${esc(raw)}</pre>`);
+}
+
+$("timeline").addEventListener("click", ev => {
+  const go = ev.target.closest("[data-go]");
+  if (go) {
+    const id = go.dataset.go, target = state.doc.events.find(x => x.id === id);
+    if (target && !(state.kinds[target.kind] ?? true)) { state.kinds[target.kind] = true; chips(); }
+    state.open.add(id); render();
+    const el = $(id); if (el) { el.scrollIntoView({block: "center"}); el.classList.add("hl"); setTimeout(() => el.classList.remove("hl"), 1500); }
+    return;
+  }
+  const t = ev.target.closest("[data-toggle]");
+  if (t) { const id = t.dataset.toggle; state.open.has(id) ? state.open.delete(id) : state.open.add(id); render(); }
+});
+$("session").onchange = e => loadSession(e.target.value);
+$("tool").onchange = e => { state.tool = e.target.value; render(); };
+let timer; $("search").oninput = e => { clearTimeout(timer); timer = setTimeout(() => { state.q = e.target.value; render(); }, 150); };
+
+// ---------------------------------------------------------------- views
+function showView(v) {
+  const cmpOn = v === "compare";
+  $("view-compare").hidden = !cmpOn; $("cmp-controls").hidden = !cmpOn;
+  $("view-timeline").hidden = cmpOn; $("tl-controls").hidden = cmpOn;
+  $("tab-compare").setAttribute("aria-selected", cmpOn); $("tab-timeline").setAttribute("aria-selected", !cmpOn);
+  if (cmpOn) { if (!location.hash.startsWith("#compare")) history.replaceState(null, "", "#compare"); loadCompare(); }
+  else if (state.doc) history.replaceState(null, "", "#" + state.doc.session_id);
+}
+$("tab-compare").onclick = () => showView("compare");
+$("tab-timeline").onclick = () => showView("timeline");
+
+// ---------------------------------------------------------------- compare
+const CATS = [["all_but_no_legal_target", "all items"], ["categorical", "categorical"], ["numeric_identity", "numeric"],
+              ["age_conversion", "age"], ["no_legal_target", "no legal target"]];
+const cmp = { rows: [], sort: { key: "start", dir: 1 }, loaded: false };
+
+async function loadCompare() {
+  const q = new URLSearchParams({ study: $("cmp-study").value, e3: $("cmp-e3").checked ? "1" : "0" });
+  const r = await fetch("/api/compare?" + q); cmp.rows = (await r.json()).rows || [];
+  if (!cmp.loaded) {
+    const studies = [...new Set(cmp.rows.map(x => x.study))].sort();
+    $("cmp-study").innerHTML = `<option value="">all</option>` + studies.map(s => `<option>${esc(s)}</option>`).join("");
+    cmp.loaded = true;
+  }
+  renderCompare(); fillDiffSelects();
+  const hq = new URLSearchParams(location.hash.split("?")[1] || "");
+  if (hq.get("a") && hq.get("b") && !cmp.autoDiffDone) {
+    cmp.autoDiffDone = true;
+    const ids = cmp.rows.map(r => r.session_id || "");
+    const pick = p => ids.find(i => i.startsWith(p));
+    if (pick(hq.get("a")) && pick(hq.get("b"))) { $("diff-a").value = pick(hq.get("a")); $("diff-b").value = pick(hq.get("b")); runDiff(); }
+  }
+}
+
+function cond(r) {
+  const f = [];
+  f.push(`<span class="flag">${esc(r.mode === "end_to_end" ? "end-to-end" : r.mode)}</span>`);
+  if (r.search_only) f.push(`<span class="flag">search-only k=${esc(r.search_top_k)}</span>`);
+  if (r.code) f.push(`<span class="flag">code</span>`);
+  if (r.sql) f.push(`<span class="flag">sql</span>`);
+  if (r.source !== "claude_vm") f.push(`<span class="flag">E3 · BDI-Kit</span>`);
+  return f.join("");
+}
+const bar = x => x == null ? "–" : `<div class="barcell"><span class="fill" style="width:${(100 * x).toFixed(1)}%"></span><span class="val">${pct(x)}</span></div>`;
+
+function cmpColumns(cat) {
+  const c = r => (r.categories || {})[cat] || {};
+  return [
+    ["run", "Run", r => r.session_id ? `<button class="linkbtn" data-open="${esc(r.session_id)}">${esc(r.run)}</button>` : esc(r.run), r => r.run],
+    ["start", "Started", r => esc((r.start || "").replace("T", " ").slice(0, 16)), r => r.start || ""],
+    ["study", "Study", r => esc(r.study), r => r.study],
+    ["cond", "Conditions", cond, r => `${r.mode}${r.search_only}${r.code}`],
+    ["model", "Model", r => esc(r.model), r => r.model],
+    ["n", "Items", r => fmt(c(r).n), r => c(r).n, true],
+    ["strict", "Strict (hbench)", r => bar(c(r).strict), r => c(r).strict],
+    ["answered", "Answered", r => bar(c(r).answered), r => c(r).answered],
+    ["coverage", "Coverage", r => pct(c(r).coverage), r => c(r).coverage, true],
+    ["brier", "Brier", r => fmt(r.calibration?.brier), r => r.calibration?.brier, true],
+    ["ece", "ECE", r => fmt(r.calibration?.ece), r => r.calibration?.ece, true],
+    ["calls", "Tool calls", r => fmt(r.tools?.tool_calls), r => r.tools?.tool_calls, true],
+    ["cpi", "Calls / item", r => fmt(r.tools?.calls_per_item, 2), r => r.tools?.calls_per_item, true],
+    ["searches", "Searches", r => fmt(r.tools?.searches), r => r.tools?.searches, true],
+    ["spi", "Searches / cat. item", r => fmt(r.tools?.searches_per_categorical_item, 2), r => r.tools?.searches_per_categorical_item, true],
+    ["cand", "Candidates shown", r => fmt(r.tools?.candidates_shown), r => r.tools?.candidates_shown, true],
+    ["code", "Code runs", r => fmt(r.tools?.code_runs), r => r.tools?.code_runs, true],
+  ];
+}
+
+function renderCompare() {
+  const cat = $("cmp-cat").value, cols = cmpColumns(cat);
+  const col = cols.find(c => c[0] === cmp.sort.key) || cols[1];
+  const val = x => x == null ? -Infinity : x;
+  const rows = [...cmp.rows].sort((a, b) => { const x = val(col[3](a)), y = val(col[3](b)); return (x > y ? 1 : x < y ? -1 : 0) * cmp.sort.dir; });
+  $("cmp-count").textContent = `${rows.length} runs`;
+  $("cmp-title").textContent = `Runs · ${CATS.find(c => c[0] === cat)[1]}`;
+  $("cmp-e3-note").hidden = !$("cmp-e3").checked;
+  $("cmp-table").innerHTML = `<thead><tr>${cols.map(([k, label, , , num]) =>
+      `<th data-sort="${k}" class="${num ? "num " : ""}${k === cmp.sort.key ? (cmp.sort.dir > 0 ? "sorted-asc" : "sorted-desc") : ""}">${label}</th>`).join("")}</tr></thead><tbody>` +
+    (rows.length ? rows.map(r => `<tr>${cols.map(([, , cell, , num]) => `<td class="${num ? "num" : ""}">${cell(r)}</td>`).join("")}</tr>`).join("")
+                 : `<tr><td colspan="${cols.length}" class="empty">No scored runs.</td></tr>`) + `</tbody>`;
+  const cats = CATS.filter(([k]) => rows.some(r => (r.categories || {})[k]?.n));
+  $("cmp-heat").innerHTML = `<thead><tr><th>Run</th><th>Conditions</th>${cats.map(([, l]) => `<th class="num">${l}</th>`).join("")}</tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${r.session_id ? `<button class="linkbtn" data-open="${esc(r.session_id)}">${esc(r.run)}</button>` : esc(r.run)}</td><td>${cond(r)}</td>` +
+      cats.map(([k]) => { const v = (r.categories || {})[k]; if (!v) return `<td class="hv" style="--h:0">–</td>`;
+        const x = v.answered ?? v.strict, star = v.answered == null && v.strict != null ? "*" : "";
+        return x == null ? `<td class="hv" style="--h:0">–</td>` : `<td class="hv" style="--h:${x.toFixed(3)}">${pct(x)}${star}</td>`; }).join("") + `</tr>`).join("") + `</tbody>`;
+}
+
+function fillDiffSelects() {
+  const opts = cmp.rows.filter(r => r.session_id).map(r =>
+    `<option value="${esc(r.session_id)}">${esc(r.run)} · ${esc(r.study)} · ${esc(r.mode)}${r.search_only ? " · search-only" : ""}${r.code ? " · code" : ""}</option>`).join("");
+  const a = $("diff-a").value, b = $("diff-b").value;
+  $("diff-a").innerHTML = opts; $("diff-b").innerHTML = opts;
+  const ids = cmp.rows.filter(r => r.session_id).map(r => r.session_id);
+  if (a && ids.includes(a)) $("diff-a").value = a; else if (ids.length > 1) $("diff-a").value = ids[ids.length - 2];
+  if (b && ids.includes(b)) $("diff-b").value = b; else if (ids.length) $("diff-b").value = ids[ids.length - 1];
+}
+
+async function runDiff() {
+  const a = $("diff-a").value, b = $("diff-b").value;
+  if (!a || !b) return;
+  history.replaceState(null, "", `#compare?a=${a.slice(0, 8)}&b=${b.slice(0, 8)}`);
+  const r = await fetch(`/api/diff?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`); const d = await r.json();
+  if (d.error) { $("diff-out").innerHTML = `<p class="bad">${esc(d.error)}</p>`; return; }
+  const mark = ok => ok ? `<span class="ok" aria-label="correct">✓</span>` : `<span class="bad" aria-label="wrong">✗</span>`;
+  let html = `<table><thead><tr><th>category</th><th class="num">both right</th><th class="num">only A right</th><th class="num">only B right</th><th class="num">both wrong</th></tr></thead><tbody>` +
+    Object.entries(d.summary).map(([c, v]) => `<tr><td>${esc(c)}</td><td class="num">${v.both_right}</td><td class="num">${v.only_a}</td><td class="num">${v.only_b}</td><td class="num">${v.both_wrong}</td></tr>`).join("") + `</tbody></table>`;
+  if (d.only_in_a || d.only_in_b) html += `<p class="note">Items in only one run: A ${d.only_in_a}, B ${d.only_in_b} (different studies?).</p>`;
+  html += d.rows.length
+    ? `<p class="note">${d.rows.length} items where the answers or their correctness differ.</p><table><thead><tr><th>category</th><th>pair</th><th>source value</th><th>gold</th><th>A</th><th>B</th></tr></thead><tbody>` +
+      d.rows.map(x => `<tr><td>${esc(x.category)}</td><td>${esc(x.source_attribute)} → ${esc(x.target_attribute)}</td><td>${esc(x.source_value || "(empty)")}</td><td>${esc(x.gold || "(none)")}</td>` +
+        `<td>${mark(x.correct_a)} ${esc(x.pred_a)}${x.confidence_a ? ` <span class="count">(${esc(x.confidence_a)})</span>` : ""}</td>` +
+        `<td>${mark(x.correct_b)} ${esc(x.pred_b)}${x.confidence_b ? ` <span class="count">(${esc(x.confidence_b)})</span>` : ""}</td></tr>`).join("") + `</tbody></table>`
+    : `<p class="note">The two runs gave the same answer on every common item.</p>`;
+  $("diff-out").innerHTML = html;
+}
+
+$("cmp-table").addEventListener("click", ev => {
+  const th = ev.target.closest("th[data-sort]");
+  if (th) { const k = th.dataset.sort; cmp.sort = { key: k, dir: cmp.sort.key === k ? -cmp.sort.dir : 1 }; renderCompare(); }
+});
+$("view-compare").addEventListener("click", async ev => {
+  const b = ev.target.closest("[data-open]");
+  if (b) { $("session").value = b.dataset.open; showView("timeline"); await loadSession(b.dataset.open); }
+});
+$("cmp-study").onchange = loadCompare; $("cmp-e3").onchange = loadCompare;
+$("cmp-cat").onchange = renderCompare; $("diff-go").onclick = runDiff;
+chips(); loadSessions();
+if (location.hash.startsWith("#compare")) showView("compare");
+</script>
+</body>
+</html>
